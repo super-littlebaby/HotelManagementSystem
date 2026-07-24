@@ -1,0 +1,47 @@
+# 服务器配置
+server:
+  port: 8080
+
+# 应用配置
+spring:
+  application:
+    name: HotelManagementSystem
+
+  # SQL Server 数据源配置
+  datasource:
+    url: jdbc:sqlserver://localhost:11837;instanceName=SQLEXPRESS;databaseName=HotelManagementSystem;encrypt=true;trustServerCertificate=true
+    username: sa
+    password: 123456
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+  # JPA / Hibernate 配置
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        format_sql: true
+    open-in-view: false
+
+# SpringDoc OpenAPI (Swagger UI) 配置
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.project.hotelmanagementsystem: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/hotel-management-system.log
