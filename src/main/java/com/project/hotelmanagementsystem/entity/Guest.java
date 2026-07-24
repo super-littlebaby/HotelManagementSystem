@@ -25,7 +25,7 @@ public class Guest {
     @Column(name = "id_type", length = 20)
     private String idType;
 
-    @Column(name = "id_number", length = 50)
+    @Column(name = "id_number", length = 200)
     private String idNumber;
 
     @Column(name = "phone", length = 20)
@@ -33,6 +33,9 @@ public class Guest {
 
     @Column(name = "email", length = 100)
     private String email;
+
+    @Column(name = "password", length = 200)
+    private String password;
 
     @Column(name = "nationality", length = 50)
     private String nationality;
@@ -103,6 +106,14 @@ public class Guest {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public String getNationality() {
