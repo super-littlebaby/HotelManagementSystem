@@ -72,4 +72,48 @@ public interface RoomService {
      * @return 房间列表
      */
     List<Room> findByRoomTypeIdAndStatus(Integer roomTypeId, String status);
+
+    /**
+     * 根据酒店ID查询房间列表
+     *
+     * @param hotelId 酒店ID
+     * @return 房间列表
+     */
+    List<Room> findByHotelId(Integer hotelId);
+
+    /**
+     * 根据酒店ID和状态查询房间列表
+     *
+     * @param hotelId 酒店ID
+     * @param status  房间状态
+     * @return 房间列表
+     */
+    List<Room> findByHotelIdAndStatus(Integer hotelId, String status);
+
+    /**
+     * 更新房间状态并记录日志
+     *
+     * @param id        房间ID
+     * @param newStatus 新状态
+     * @param changedBy 操作人ID
+     * @param notes     备注
+     * @return 更新后的房间信息
+     */
+    Room updateStatus(Integer id, String newStatus, Integer changedBy, String notes);
+
+    /**
+     * 将房间实体转换为DTO
+     *
+     * @param room 房间实体
+     * @return DTO
+     */
+    java.util.Map<String, Object> convertToDTO(Room room);
+
+    /**
+     * 将房间实体列表转换为DTO列表
+     *
+     * @param rooms 房间实体列表
+     * @return DTO列表
+     */
+    java.util.List<java.util.Map<String, Object>> convertToDTOList(java.util.List<Room> rooms);
 }

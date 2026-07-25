@@ -7,12 +7,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-/**
- * 房型Service实现类
- */
 @Service
 @Transactional
 public class RoomTypeServiceImpl implements RoomTypeService {
@@ -27,18 +27,19 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     @Override
     @Transactional(readOnly = true)
     public Optional<RoomType> findById(Integer id) {
-        return roomTypeRepository.findById(id);
+        return roomTypeRepository.findByIdWithHotel(id);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RoomType> findAll() {
-        return roomTypeRepository.findAll();
+        return roomTypeRepository.findAllWithHotel();
     }
 
     @Override
     public RoomType save(RoomType roomType) {
-        return roomTypeRepository.save(roomType);
+        RoomType saved = roomTypeRepository.save(roomType);
+        return roomTypeRepository.findByIdWithHotel(saved.getId()).orElse(saved);
     }
 
     @Override
@@ -56,5 +57,24 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     @Transactional(readOnly = true)
     public List<RoomType> findByHotelIdAndBedType(Integer hotelId, String bedType) {
         return roomTypeRepository.findByHotelIdAndBedType(hotelId, bedType);
+    }
+
+    public Map<String, Object> convertToDTO(RoomType roomType) {
+        Map<String, Object> dto = new HashMap<>();
+        dto.put("id", roomType.getId());
+        dto.put("hotelId", roomType.getHotelId());
+        dto.put("hotelName", roomType.getHotel() != null ? roomType.getHotel().getName() : "");
+        dto.put("name", roomType.getName());
+        dto.put("description", roomType.getDescription());
+        dto.put("maxAdults", roomType.getMaxAdults());
+        dto.put("maxChildren", roomType.getMaxChildren());
+        dto.put("basePrice", roomType.getBasePrice());
+        dto.put("area", roomType.getArea());
+        dto.put("bedType", roomType.getBedType());
+        return dto;
+    }
+
+    public List<Map<String, Object>> convertToDTOList(List<RoomType> roomTypes) {
+        return roomTypes.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 }

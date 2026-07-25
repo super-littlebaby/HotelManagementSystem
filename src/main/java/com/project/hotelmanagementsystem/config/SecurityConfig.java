@@ -26,10 +26,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/guests/login", "/api/guests/register").permitAll()
-                .requestMatchers("/api/hotels/**", "/api/room-types/**", "/api/rooms/**", "/api/facilities/**").permitAll()
-                .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
-                .anyRequest().permitAll()
+                .requestMatchers("/**").permitAll()
             );
         
         return http.build();

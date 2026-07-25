@@ -1,6 +1,5 @@
 -- ============================================================
--- 酒店管理系统 - 数据库表结构（精简版）
--- 业务范围：住宿、餐饮、洗衣、损坏赔偿
+-- 酒店管理系统 - 数据库表结构
 -- 数据库：SQL Server 2016+
 -- ============================================================
 
@@ -11,8 +10,7 @@ CREATE TABLE hotels (
     address VARCHAR(300) NULL,               -- 地址
     phone VARCHAR(20) NULL,                  -- 电话
     email VARCHAR(100) NULL,                 -- 邮箱
-    description VARCHAR(MAX) NULL,           -- 简介
-    created_at DATETIME DEFAULT GETDATE()
+    description VARCHAR(MAX) NULL            -- 简介
 );
 
 -- 2. 房型表（基础房价直接定义在此）
@@ -48,12 +46,14 @@ CREATE TABLE room_type_facilities (
 -- 5. 房间表（具体物理房间）
 CREATE TABLE rooms (
     id INT IDENTITY(1,1) PRIMARY KEY,
+    hotel_id INT NOT NULL,                     -- 所属酒店ID
     room_type_id INT NOT NULL,
     room_number VARCHAR(10) NOT NULL UNIQUE,  -- 房间号
     floor INT NULL,
     status VARCHAR(20) DEFAULT 'vacant'
         CHECK (status IN ('vacant','occupied','dirty','out_of_order')),
     notes VARCHAR(MAX) NULL,
+    CONSTRAINT fk_rooms_hotel FOREIGN KEY (hotel_id) REFERENCES hotels(id),
     CONSTRAINT fk_rooms_room_type FOREIGN KEY (room_type_id) REFERENCES room_types(id)
 );
 
@@ -64,9 +64,10 @@ CREATE TABLE guests (
     last_name VARCHAR(50) NOT NULL,
     id_type VARCHAR(20) DEFAULT 'id_card'
         CHECK (id_type IN ('id_card','passport','drivers_license','other')),
-    id_number VARCHAR(50) NULL,              -- 证件号码
+    id_number VARCHAR(200) NULL,             -- 证件号码（加密存储）
     phone VARCHAR(20) NULL,
     email VARCHAR(100) NULL,
+    password VARCHAR(200) NULL,              -- 登录密码（BCrypt加密）
     nationality VARCHAR(50) NULL,
     gender VARCHAR(10) NULL
         CHECK (gender IN ('male','female','other')),
@@ -75,6 +76,7 @@ CREATE TABLE guests (
     created_at DATETIME DEFAULT GETDATE()
 );
 CREATE INDEX idx_guests_id_number ON guests(id_number);
+CREATE UNIQUE INDEX idx_guests_email ON guests(email);
 
 -- 7. 员工表（系统用户）
 CREATE TABLE employees (

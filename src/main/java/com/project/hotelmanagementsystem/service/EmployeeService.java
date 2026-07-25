@@ -81,4 +81,13 @@ public interface EmployeeService {
      * @return 员工列表
      */
     List<Employee> findByHotelIdAndIsActive(Integer hotelId, Boolean isActive);
+
+    /**
+     * 员工登录
+     *
+     * @param username 用户名
+     * @param password 密码
+     * @return 员工信息
+     */
+    Optional<Employee> login(String username, String password);
 }

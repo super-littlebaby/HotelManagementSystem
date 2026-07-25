@@ -1,138 +1,143 @@
 package com.project.hotelmanagementsystem.controller;
 
 import com.project.hotelmanagementsystem.common.ResponseResult;
+import com.project.hotelmanagementsystem.entity.Employee;
 import com.project.hotelmanagementsystem.entity.RoomType;
-import com.project.hotelmanagementsystem.service.RoomTypeService;
+import com.project.hotelmanagementsystem.service.DataIsolationService;
+import com.project.hotelmanagementsystem.service.impl.RoomTypeServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
-/**
- * 房型信息控制层
- * <p>
- * 负责房型（如大床房、双床房等）的增删改查及按酒店、床型条件检索，对外提供 RESTful 接口。
- * </p>
- *
- * @author HotelManagementSystem
- */
 @Tag(name = "房型管理", description = "房型信息的增删改查及条件检索接口")
 @RestController
 @RequestMapping("/api/room-types")
 public class RoomTypeController {
 
-    private final RoomTypeService roomTypeService;
+    private final RoomTypeServiceImpl roomTypeService;
+    private final DataIsolationService dataIsolationService;
 
-    /**
-     * 构造函数注入房型Service
-     *
-     * @param roomTypeService 房型Service
-     */
-    public RoomTypeController(RoomTypeService roomTypeService) {
+    public RoomTypeController(RoomTypeServiceImpl roomTypeService, DataIsolationService dataIsolationService) {
         this.roomTypeService = roomTypeService;
+        this.dataIsolationService = dataIsolationService;
     }
 
-    /**
-     * 查询所有房型
-     *
-     * @return 房型列表
-     */
-    @Operation(summary = "查询所有房型", description = "返回系统中所有房型的列表")
+    @Operation(summary = "查询所有房型", description = "返回系统中所有房型的列表，根据员工权限过滤")
     @GetMapping
-    public ResponseResult<List<RoomType>> findAll() {
-        return ResponseResult.success(roomTypeService.findAll());
+    public ResponseResult<List<Map<String, Object>>> findAll(HttpServletRequest request) {
+        Employee employee = (Employee) request.getAttribute("employee");
+        List<RoomType> roomTypes;
+        if (dataIsolationService.isGroupAdmin(employee)) {
+            roomTypes = roomTypeService.findAll();
+        } else {
+            Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
+            roomTypes = roomTypeService.findByHotelId(hotelId);
+        }
+        return ResponseResult.success(roomTypeService.convertToDTOList(roomTypes));
     }
 
-    /**
-     * 根据ID查询房型
-     *
-     * @param id 房型ID
-     * @return 房型信息，不存在返回404
-     */
     @Operation(summary = "根据ID查询房型", description = "根据房型ID查询单个房型详细信息")
     @GetMapping("/{id}")
-    public ResponseResult<RoomType> findById(
-            @Parameter(description = "房型ID", required = true) @PathVariable Integer id) {
-        return roomTypeService.findById(id)
-                .map(ResponseResult::success)
-                .orElse(ResponseResult.error(404, "资源不存在"));
+    public ResponseResult<Map<String, Object>> findById(
+            @Parameter(description = "房型ID", required = true) @PathVariable Integer id,
+            HttpServletRequest request) {
+        java.util.Optional<RoomType> roomTypeOpt = roomTypeService.findById(id);
+        if (roomTypeOpt.isEmpty()) {
+            return ResponseResult.error(404, "资源不存在");
+        }
+        RoomType roomType = roomTypeOpt.get();
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.canAccessHotel(employee, roomType.getHotelId())) {
+            return ResponseResult.error(403, "无权访问该房型");
+        }
+        return ResponseResult.success(roomTypeService.convertToDTO(roomType));
     }
 
-    /**
-     * 新增房型
-     *
-     * @param roomType 房型信息
-     * @return 创建后的房型信息
-     */
     @Operation(summary = "新增房型", description = "创建一个新的房型记录")
     @PostMapping
-    public ResponseResult<RoomType> create(
-            @Parameter(description = "房型信息", required = true) @RequestBody RoomType roomType) {
+    public ResponseResult<Map<String, Object>> create(
+            @Parameter(description = "房型信息", required = true) @RequestBody RoomType roomType,
+            HttpServletRequest request) {
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.isGroupAdmin(employee)) {
+            Integer accessibleHotelId = dataIsolationService.getAccessibleHotelId(employee);
+            if (!accessibleHotelId.equals(roomType.getHotelId())) {
+                return ResponseResult.error(403, "无权创建其他酒店的房型");
+            }
+        }
         RoomType saved = roomTypeService.save(roomType);
-        return ResponseResult.success("创建成功", saved);
+        return ResponseResult.success("创建成功", roomTypeService.convertToDTO(saved));
     }
 
-    /**
-     * 更新房型信息
-     *
-     * @param id       房型ID
-     * @param roomType 房型信息
-     * @return 更新后的房型信息，不存在返回404
-     */
     @Operation(summary = "更新房型信息", description = "根据房型ID更新房型信息，不存在则返回404")
     @PutMapping("/{id}")
-    public ResponseResult<RoomType> update(
+    public ResponseResult<Map<String, Object>> update(
             @Parameter(description = "房型ID", required = true) @PathVariable Integer id,
-            @Parameter(description = "房型信息", required = true) @RequestBody RoomType roomType) {
-        return roomTypeService.findById(id)
-                .map(existing -> {
-                    roomType.setId(id);
-                    return ResponseResult.success(roomTypeService.save(roomType));
-                })
-                .orElse(ResponseResult.error(404, "资源不存在"));
+            @Parameter(description = "房型信息", required = true) @RequestBody RoomType roomType,
+            HttpServletRequest request) {
+        java.util.Optional<RoomType> existingOpt = roomTypeService.findById(id);
+        if (existingOpt.isEmpty()) {
+            return ResponseResult.error(404, "资源不存在");
+        }
+        RoomType existing = existingOpt.get();
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.canAccessHotel(employee, existing.getHotelId())) {
+            return ResponseResult.error(403, "无权更新该房型");
+        }
+        if (!dataIsolationService.isGroupAdmin(employee) && 
+            !existing.getHotelId().equals(roomType.getHotelId())) {
+            return ResponseResult.error(403, "无权将房型转移到其他酒店");
+        }
+        roomType.setId(id);
+        RoomType updated = roomTypeService.save(roomType);
+        return ResponseResult.success(roomTypeService.convertToDTO(updated));
     }
 
-    /**
-     * 根据ID删除房型
-     *
-     * @param id 房型ID
-     * @return 删除结果
-     */
     @Operation(summary = "删除房型", description = "根据房型ID删除房型记录")
     @DeleteMapping("/{id}")
     public ResponseResult<Void> deleteById(
-            @Parameter(description = "房型ID", required = true) @PathVariable Integer id) {
+            @Parameter(description = "房型ID", required = true) @PathVariable Integer id,
+            HttpServletRequest request) {
+        java.util.Optional<RoomType> roomTypeOpt = roomTypeService.findById(id);
+        if (roomTypeOpt.isEmpty()) {
+            return ResponseResult.error(404, "资源不存在");
+        }
+        RoomType roomType = roomTypeOpt.get();
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.canAccessHotel(employee, roomType.getHotelId())) {
+            return ResponseResult.error(403, "无权删除该房型");
+        }
         roomTypeService.deleteById(id);
         return ResponseResult.success("删除成功", null);
     }
 
-    /**
-     * 根据酒店ID查询房型列表
-     *
-     * @param hotelId 酒店ID
-     * @return 房型列表
-     */
     @Operation(summary = "按酒店ID查询房型", description = "根据酒店ID查询该酒店下所有房型")
     @GetMapping("/search/byHotelId")
-    public ResponseResult<List<RoomType>> findByHotelId(
-            @Parameter(description = "酒店ID", required = true) @RequestParam Integer hotelId) {
-        return ResponseResult.success(roomTypeService.findByHotelId(hotelId));
+    public ResponseResult<List<Map<String, Object>>> findByHotelId(
+            @Parameter(description = "酒店ID", required = true) @RequestParam Integer hotelId,
+            HttpServletRequest request) {
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.canAccessHotel(employee, hotelId)) {
+            return ResponseResult.error(403, "无权访问该酒店的房型");
+        }
+        return ResponseResult.success(roomTypeService.convertToDTOList(roomTypeService.findByHotelId(hotelId)));
     }
 
-    /**
-     * 根据酒店ID和床型查询房型列表
-     *
-     * @param hotelId 酒店ID
-     * @param bedType 床型
-     * @return 房型列表
-     */
     @Operation(summary = "按酒店ID和床型查询房型", description = "根据酒店ID和床型联合查询房型列表")
     @GetMapping("/search/byHotelIdAndBedType")
-    public ResponseResult<List<RoomType>> findByHotelIdAndBedType(
+    public ResponseResult<List<Map<String, Object>>> findByHotelIdAndBedType(
             @Parameter(description = "酒店ID", required = true) @RequestParam Integer hotelId,
-            @Parameter(description = "床型", required = true) @RequestParam String bedType) {
-        return ResponseResult.success(roomTypeService.findByHotelIdAndBedType(hotelId, bedType));
+            @Parameter(description = "床型", required = true) @RequestParam String bedType,
+            HttpServletRequest request) {
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.canAccessHotel(employee, hotelId)) {
+            return ResponseResult.error(403, "无权访问该酒店的房型");
+        }
+        return ResponseResult.success(roomTypeService.convertToDTOList(roomTypeService.findByHotelIdAndBedType(hotelId, bedType)));
     }
 }

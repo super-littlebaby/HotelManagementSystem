@@ -2,7 +2,6 @@ package com.project.hotelmanagementsystem.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "hotels")
@@ -26,9 +25,6 @@ public class Hotel {
 
     @Column(name = "description", columnDefinition = "VARCHAR(MAX)")
     private String description;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 
     public Integer getId() {
         return id;
@@ -76,13 +72,5 @@ public class Hotel {
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
     }
 }

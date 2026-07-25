@@ -14,6 +14,10 @@ public class RoomType {
     @Column(name = "hotel_id", nullable = false)
     private Integer hotelId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hotel_id", insertable = false, updatable = false)
+    private Hotel hotel;
+
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
@@ -49,6 +53,14 @@ public class RoomType {
 
     public void setHotelId(Integer hotelId) {
         this.hotelId = hotelId;
+    }
+
+    public Hotel getHotel() {
+        return hotel;
+    }
+
+    public void setHotel(Hotel hotel) {
+        this.hotel = hotel;
     }
 
     public String getName() {
