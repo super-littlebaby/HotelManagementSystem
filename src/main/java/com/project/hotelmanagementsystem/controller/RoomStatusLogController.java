@@ -55,9 +55,11 @@ public class RoomStatusLogController {
     @GetMapping("/{id}")
     public ResponseResult<RoomStatusLog> findById(
             @Parameter(description = "日志ID", required = true) @PathVariable Integer id) {
-        return roomStatusLogService.findById(id)
-                .map(ResponseResult::success)
-                .orElse(ResponseResult.error(404, "资源不存在"));
+        java.util.Optional<RoomStatusLog> optional = roomStatusLogService.findById(id);
+        if (optional.isEmpty()) {
+            return ResponseResult.error(404, "资源不存在");
+        }
+        return ResponseResult.success(optional.get());
     }
 
     /**
@@ -86,12 +88,12 @@ public class RoomStatusLogController {
     public ResponseResult<RoomStatusLog> update(
             @Parameter(description = "日志ID", required = true) @PathVariable Integer id,
             @Parameter(description = "房间状态变更日志信息", required = true) @RequestBody RoomStatusLog roomStatusLog) {
-        return roomStatusLogService.findById(id)
-                .map(existing -> {
-                    roomStatusLog.setId(id);
-                    return ResponseResult.success(roomStatusLogService.save(roomStatusLog));
-                })
-                .orElse(ResponseResult.error(404, "资源不存在"));
+        java.util.Optional<RoomStatusLog> optional = roomStatusLogService.findById(id);
+        if (optional.isEmpty()) {
+            return ResponseResult.error(404, "资源不存在");
+        }
+        roomStatusLog.setId(id);
+        return ResponseResult.success(roomStatusLogService.save(roomStatusLog));
     }
 
     /**

@@ -3,6 +3,8 @@ package com.project.hotelmanagementsystem.controller;
 import com.project.hotelmanagementsystem.common.ResponseResult;
 import com.project.hotelmanagementsystem.entity.Employee;
 import com.project.hotelmanagementsystem.entity.Hotel;
+import com.project.hotelmanagementsystem.entity.RoomType;
+import com.project.hotelmanagementsystem.repository.RoomTypeRepository;
 import com.project.hotelmanagementsystem.service.DataIsolationService;
 import com.project.hotelmanagementsystem.service.HotelService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Tag(name = "酒店管理", description = "酒店基础信息的增删改查及条件检索接口")
@@ -20,10 +23,30 @@ public class HotelController {
 
     private final HotelService hotelService;
     private final DataIsolationService dataIsolationService;
+    private final RoomTypeRepository roomTypeRepository;
 
-    public HotelController(HotelService hotelService, DataIsolationService dataIsolationService) {
+    public HotelController(HotelService hotelService, DataIsolationService dataIsolationService, RoomTypeRepository roomTypeRepository) {
         this.hotelService = hotelService;
         this.dataIsolationService = dataIsolationService;
+        this.roomTypeRepository = roomTypeRepository;
+    }
+
+    private void fillMinPrice(List<Hotel> hotels) {
+        if (hotels.isEmpty()) return;
+        for (Hotel hotel : hotels) {
+            List<RoomType> roomTypes = roomTypeRepository.findByHotelId(hotel.getId());
+            hotel.setMinPrice(roomTypes.stream()
+                    .map(RoomType::getBasePrice)
+                    .reduce(BigDecimal::min).orElse(null));
+        }
+    }
+
+    private void fillMinPrice(Hotel hotel) {
+        if (hotel == null) return;
+        List<RoomType> roomTypes = roomTypeRepository.findByHotelId(hotel.getId());
+        hotel.setMinPrice(roomTypes.stream()
+                .map(RoomType::getBasePrice)
+                .reduce(BigDecimal::min).orElse(null));
     }
 
     @Operation(summary = "查询所有酒店", description = "返回系统中所有酒店的列表，根据员工权限过滤")
@@ -31,14 +54,21 @@ public class HotelController {
     public ResponseResult<List<Hotel>> findAll(HttpServletRequest request) {
         Employee employee = (Employee) request.getAttribute("employee");
         List<Hotel> hotels;
-        if (dataIsolationService.isGroupAdmin(employee)) {
+        if (employee == null) {
+            hotels = hotelService.findAll();
+        } else if (dataIsolationService.isGroupAdmin(employee)) {
             hotels = hotelService.findAll();
         } else {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
-            hotels = hotelService.findById(hotelId)
-                    .map(List::of)
-                    .orElse(List.of());
+            if (hotelId != null) {
+                hotels = hotelService.findById(hotelId)
+                        .map(List::of)
+                        .orElse(List.of());
+            } else {
+                hotels = hotelService.findAll();
+            }
         }
+        fillMinPrice(hotels);
         return ResponseResult.success(hotels);
     }
 
@@ -56,6 +86,7 @@ public class HotelController {
         if (!dataIsolationService.canAccessHotel(employee, hotel.getId())) {
             return ResponseResult.error(403, "无权访问该酒店信息");
         }
+        fillMinPrice(hotel);
         return ResponseResult.success(hotel);
     }
 
@@ -85,7 +116,7 @@ public class HotelController {
         Hotel existing = existingOpt.get();
         Employee employee = (Employee) request.getAttribute("employee");
         if (!dataIsolationService.isGroupAdmin(employee)) {
-            if (!"manager".equals(employee.getRole())) {
+            if (employee == null || !"manager".equals(employee.getRole())) {
                 return ResponseResult.error(403, "只有管理员和经理可以修改酒店信息");
             }
             if (!dataIsolationService.canAccessHotel(employee, existing.getId())) {
@@ -121,10 +152,13 @@ public class HotelController {
             HttpServletRequest request) {
         Employee employee = (Employee) request.getAttribute("employee");
         List<Hotel> hotels = hotelService.findByNameContaining(name);
-        if (!dataIsolationService.isGroupAdmin(employee)) {
+        if (employee != null && !dataIsolationService.isGroupAdmin(employee)) {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
-            hotels = hotels.stream().filter(h -> h.getId().equals(hotelId)).toList();
+            if (hotelId != null) {
+                hotels = hotels.stream().filter(h -> h.getId().equals(hotelId)).toList();
+            }
         }
+        fillMinPrice(hotels);
         return ResponseResult.success(hotels);
     }
 
@@ -135,10 +169,13 @@ public class HotelController {
             HttpServletRequest request) {
         Employee employee = (Employee) request.getAttribute("employee");
         List<Hotel> hotels = hotelService.findByAddressContaining(address);
-        if (!dataIsolationService.isGroupAdmin(employee)) {
+        if (employee != null && !dataIsolationService.isGroupAdmin(employee)) {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
-            hotels = hotels.stream().filter(h -> h.getId().equals(hotelId)).toList();
+            if (hotelId != null) {
+                hotels = hotels.stream().filter(h -> h.getId().equals(hotelId)).toList();
+            }
         }
+        fillMinPrice(hotels);
         return ResponseResult.success(hotels);
     }
 }

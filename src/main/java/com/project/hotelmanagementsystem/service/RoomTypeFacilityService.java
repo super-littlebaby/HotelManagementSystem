@@ -1,5 +1,6 @@
 package com.project.hotelmanagementsystem.service;
 
+import com.project.hotelmanagementsystem.entity.Facility;
 import com.project.hotelmanagementsystem.entity.RoomTypeFacility;
 import com.project.hotelmanagementsystem.entity.RoomTypeFacilityId;
 
@@ -56,4 +57,43 @@ public interface RoomTypeFacilityService {
      * @return 房型-设施关联列表
      */
     List<RoomTypeFacility> findByFacilityId(Integer facilityId);
+
+    /**
+     * 根据房型ID查询设施详情列表
+     *
+     * @param roomTypeId 房型ID
+     * @return 设施详情列表
+     */
+    List<Facility> findFacilitiesByRoomTypeId(Integer roomTypeId);
+
+    /**
+     * 批量添加设施到房型
+     *
+     * @param roomTypeId  房型ID
+     * @param facilityIds 设施ID列表
+     */
+    void addFacilitiesToRoomType(Integer roomTypeId, List<Integer> facilityIds);
+
+    /**
+     * 批量移除房型的设施
+     *
+     * @param roomTypeId  房型ID
+     * @param facilityIds 设施ID列表
+     */
+    void removeFacilitiesFromRoomType(Integer roomTypeId, List<Integer> facilityIds);
+
+    /**
+     * 替换房型的所有设施
+     *
+     * @param roomTypeId  房型ID
+     * @param facilityIds 新的设施ID列表
+     */
+    void replaceFacilitiesForRoomType(Integer roomTypeId, List<Integer> facilityIds);
+
+    /**
+     * 删除房型的所有关联设施
+     *
+     * @param roomTypeId 房型ID
+     */
+    void deleteByRoomTypeId(Integer roomTypeId);
 }

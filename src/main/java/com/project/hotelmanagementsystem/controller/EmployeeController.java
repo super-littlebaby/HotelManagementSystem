@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -26,12 +27,14 @@ public class EmployeeController {
     private final EmployeeService employeeService;
     private final DataIsolationService dataIsolationService;
     private final AuthService authService;
+    private final PasswordEncoder passwordEncoder;
 
     public EmployeeController(EmployeeService employeeService, DataIsolationService dataIsolationService, 
-                              AuthService authService) {
+                              AuthService authService, PasswordEncoder passwordEncoder) {
         this.employeeService = employeeService;
         this.dataIsolationService = dataIsolationService;
         this.authService = authService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Operation(summary = "查询所有员工", description = "返回系统中所有员工的列表，根据员工权限过滤")
@@ -235,6 +238,77 @@ public class EmployeeController {
         return ResponseResult.success(employeeService.findByHotelIdAndIsActive(hotelId, isActive).stream()
                 .map(this::maskEmployeeInfo)
                 .collect(Collectors.toList()));
+    }
+
+    @Operation(summary = "更新个人资料", description = "员工自助更新个人资料（仅允许修改姓名、电话、邮箱）")
+    @PutMapping("/profile")
+    public ResponseResult<Map<String, Object>> updateProfile(
+            @RequestBody Map<String, String> request,
+            HttpServletRequest httpRequest) {
+        Employee currentEmployee = (Employee) httpRequest.getAttribute("employee");
+        if (currentEmployee == null) {
+            return ResponseResult.error(401, "未登录");
+        }
+
+        String firstName = request.get("firstName");
+        String lastName = request.get("lastName");
+        String phone = request.get("phone");
+        String email = request.get("email");
+
+        if (firstName != null) currentEmployee.setFirstName(firstName);
+        if (lastName != null) currentEmployee.setLastName(lastName);
+        if (phone != null) currentEmployee.setPhone(phone);
+        if (email != null) currentEmployee.setEmail(email);
+
+        Employee saved = employeeService.save(currentEmployee);
+        authService.storeToken((String) httpRequest.getAttribute("token"), saved);
+        return ResponseResult.success("更新成功", maskEmployeeInfo(saved));
+    }
+
+    @Operation(summary = "修改密码", description = "员工修改个人登录密码")
+    @PutMapping("/password")
+    public ResponseResult<Map<String, Object>> changePassword(
+            @RequestBody Map<String, String> request,
+            HttpServletRequest httpRequest) {
+        Employee currentEmployee = (Employee) httpRequest.getAttribute("employee");
+        if (currentEmployee == null) {
+            return ResponseResult.error(401, "未登录");
+        }
+
+        String currentPassword = request.get("currentPassword");
+        String newPassword = request.get("newPassword");
+
+        if (currentPassword == null || newPassword == null) {
+            return ResponseResult.error(400, "密码不能为空");
+        }
+
+        java.util.Optional<Employee> employeeOpt = employeeService.findById(currentEmployee.getId());
+        if (employeeOpt.isEmpty()) {
+            return ResponseResult.error(404, "员工不存在");
+        }
+
+        Employee employee = employeeOpt.get();
+        String storedPassword = employee.getPasswordHash();
+        boolean isEncrypted = storedPassword != null &&
+            (storedPassword.startsWith("$2a$") ||
+             storedPassword.startsWith("$2b$") ||
+             storedPassword.startsWith("$2y$"));
+
+        boolean passwordMatch;
+        if (isEncrypted) {
+            passwordMatch = passwordEncoder.matches(currentPassword, storedPassword);
+        } else {
+            passwordMatch = currentPassword.equals(storedPassword);
+        }
+
+        if (!passwordMatch) {
+            return ResponseResult.error(400, "当前密码不正确");
+        }
+
+        employee.setPasswordHash(newPassword);
+        Employee saved = employeeService.save(employee);
+        authService.storeToken((String) httpRequest.getAttribute("token"), saved);
+        return ResponseResult.success("密码修改成功", maskEmployeeInfo(saved));
     }
 
     @Operation(summary = "员工登录", description = "员工通过用户名和密码登录系统")

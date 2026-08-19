@@ -26,6 +26,9 @@ public class Hotel {
     @Column(name = "description", columnDefinition = "VARCHAR(MAX)")
     private String description;
 
+    @Transient
+    private BigDecimal minPrice;
+
     public Integer getId() {
         return id;
     }
@@ -72,5 +75,13 @@ public class Hotel {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public BigDecimal getMinPrice() {
+        return minPrice;
+    }
+
+    public void setMinPrice(BigDecimal minPrice) {
+        this.minPrice = minPrice;
     }
 }

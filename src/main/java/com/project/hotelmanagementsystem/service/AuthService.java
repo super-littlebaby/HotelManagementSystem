@@ -1,6 +1,7 @@
 package com.project.hotelmanagementsystem.service;
 
 import com.project.hotelmanagementsystem.entity.Employee;
+import com.project.hotelmanagementsystem.entity.Guest;
 
 /**
  * 认证服务接口
@@ -24,9 +25,32 @@ public interface AuthService {
     Employee getEmployeeByToken(String token);
 
     /**
-     * 移除 token
+     * 移除员工 token
      *
      * @param token 令牌
      */
     void removeToken(String token);
+
+    /**
+     * 存储客人 token 和客人信息
+     *
+     * @param token 令牌
+     * @param guest 客人信息
+     */
+    void saveGuestToken(String token, Guest guest);
+
+    /**
+     * 根据 token 获取客人信息
+     *
+     * @param token 令牌
+     * @return 客人信息，未找到返回 null
+     */
+    Guest getGuestByToken(String token);
+
+    /**
+     * 移除客人 token
+     *
+     * @param token 令牌
+     */
+    void removeGuestToken(String token);
 }

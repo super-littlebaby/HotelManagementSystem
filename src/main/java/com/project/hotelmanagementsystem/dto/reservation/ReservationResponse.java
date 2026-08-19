@@ -1,59 +1,29 @@
-package com.project.hotelmanagementsystem.entity;
+package com.project.hotelmanagementsystem.dto.reservation;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * 预订实体类
- * 对应数据库表：reservations
+ * 预订响应DTO
  */
-@Entity
-@Table(name = "reservations")
-public class Reservation {
+public class ReservationResponse {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-
-    @Column(name = "guest_id", nullable = false)
     private Integer guestId;
-
-    @Column(name = "booking_date")
-    private LocalDateTime bookingDate;
-
-    @Column(name = "check_in_date", nullable = false)
-    private LocalDate checkInDate;
-
-    @Column(name = "check_out_date", nullable = false)
-    private LocalDate checkOutDate;
-
-    @Column(name = "status", length = 20)
-    private String status;
-
-    @Column(name = "total_amount", precision = 10, scale = 2)
-    private BigDecimal totalAmount;
-
-    @Column(name = "special_requests", columnDefinition = "VARCHAR(MAX)")
-    private String specialRequests;
-
-    @Column(name = "employee_id")
-    private Integer employeeId;
-
-    @Column(name = "channel", length = 20)
-    private String channel;
-
-    @Column(name = "hotel_id")
+    private String guestName;
     private Integer hotelId;
-
-    public Integer getHotelId() {
-        return hotelId;
-    }
-
-    public void setHotelId(Integer hotelId) {
-        this.hotelId = hotelId;
-    }
+    private String hotelName;
+    private LocalDateTime bookingDate;
+    private LocalDate checkInDate;
+    private LocalDate checkOutDate;
+    private String status;
+    private BigDecimal totalAmount;
+    private String specialRequests;
+    private Integer employeeId;
+    private String channel;
+    private List<ReservationRoomResponse> rooms;
 
     public Integer getId() {
         return id;
@@ -69,6 +39,30 @@ public class Reservation {
 
     public void setGuestId(Integer guestId) {
         this.guestId = guestId;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public void setGuestName(String guestName) {
+        this.guestName = guestName;
+    }
+
+    public Integer getHotelId() {
+        return hotelId;
+    }
+
+    public void setHotelId(Integer hotelId) {
+        this.hotelId = hotelId;
+    }
+
+    public String getHotelName() {
+        return hotelName;
+    }
+
+    public void setHotelName(String hotelName) {
+        this.hotelName = hotelName;
     }
 
     public LocalDateTime getBookingDate() {
@@ -133,5 +127,13 @@ public class Reservation {
 
     public void setChannel(String channel) {
         this.channel = channel;
+    }
+
+    public List<ReservationRoomResponse> getRooms() {
+        return rooms;
+    }
+
+    public void setRooms(List<ReservationRoomResponse> rooms) {
+        this.rooms = rooms;
     }
 }

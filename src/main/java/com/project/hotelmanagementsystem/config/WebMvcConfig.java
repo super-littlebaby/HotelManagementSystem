@@ -16,6 +16,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/employees/login");
+                .excludePathPatterns(
+                        "/api/employees/login",
+                        "/api/guests/login",
+                        "/api/guests/register",
+                        "/api/room-types/search/byHotelId",
+                        "/api/rooms/search/byHotelId",
+                        "/api/facilities",
+                        "/api/reservations/create",
+                        "/api/reservations/search/**",
+                        "/api/reservations/my/**",
+                        "/api/reservations/*/cancel"
+                );
     }
 }

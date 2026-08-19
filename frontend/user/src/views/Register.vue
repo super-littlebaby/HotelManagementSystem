@@ -33,18 +33,18 @@ const genderOptions = [
 ]
 
 const handleRegister = async () => {
-  if (!form.value.firstName || !form.value.lastName || !form.value.email || !form.value.password) {
+  if (!form.value.firstName || !form.value.lastName || !form.value.phone || !form.value.password) {
     ElMessage.warning('请填写必填信息')
     return
   }
   
-  if (!validateEmail(form.value.email)) {
-    ElMessage.warning('请输入有效的邮箱地址')
+  if (!validatePhone(form.value.phone)) {
+    ElMessage.warning('请输入有效的手机号码')
     return
   }
   
-  if (form.value.phone && !validatePhone(form.value.phone)) {
-    ElMessage.warning('请输入有效的手机号码')
+  if (form.value.email && !validateEmail(form.value.email)) {
+    ElMessage.warning('请输入有效的邮箱地址')
     return
   }
   
@@ -159,19 +159,7 @@ const validateIdNumber = (idType, idNumber) => {
           </div>
           
           <div class="form-group">
-            <label for="email">邮箱 <span class="required">*</span></label>
-            <input 
-              id="email"
-              v-model="form.email" 
-              type="email" 
-              placeholder="请输入邮箱"
-              maxlength="100"
-            />
-            <span class="hint">请输入有效的邮箱地址，将作为登录账号</span>
-          </div>
-          
-          <div class="form-group">
-            <label for="phone">手机号</label>
+            <label for="phone">手机号 <span class="required">*</span></label>
             <input 
               id="phone"
               v-model="form.phone" 
@@ -179,6 +167,19 @@ const validateIdNumber = (idType, idNumber) => {
               placeholder="请输入手机号（支持国际格式，如 +8613800138000）"
               maxlength="30"
             />
+            <span class="hint">将作为登录账号，请确保输入正确</span>
+          </div>
+          
+          <div class="form-group">
+            <label for="email">邮箱</label>
+            <input 
+              id="email"
+              v-model="form.email" 
+              type="email" 
+              placeholder="请输入邮箱（选填）"
+              maxlength="100"
+            />
+            <span class="hint">用于接收预订通知，选填</span>
           </div>
           
           <div class="form-row">

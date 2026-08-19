@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 同住客人Service实现类
+ * 同住客人服务实现类
  */
 @Service
 @Transactional
@@ -59,8 +59,12 @@ public class StayGuestServiceImpl implements StayGuestService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<StayGuest> findByCheckInIdAndIsPrimary(Integer checkInId, Boolean isPrimary) {
-        return stayGuestRepository.findByCheckInIdAndIsPrimary(checkInId, isPrimary);
+    public List<StayGuest> saveAll(List<StayGuest> stayGuests) {
+        return stayGuestRepository.saveAll(stayGuests);
+    }
+
+    @Override
+    public void deleteByCheckInId(Integer checkInId) {
+        stayGuestRepository.deleteByCheckInId(checkInId);
     }
 }

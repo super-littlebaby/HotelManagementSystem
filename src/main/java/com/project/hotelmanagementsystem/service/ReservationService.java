@@ -1,5 +1,9 @@
 package com.project.hotelmanagementsystem.service;
 
+import com.project.hotelmanagementsystem.dto.checkin.CreateCheckInRequest;
+import com.project.hotelmanagementsystem.dto.reservation.CreateReservationRequest;
+import com.project.hotelmanagementsystem.dto.reservation.ReservationResponse;
+import com.project.hotelmanagementsystem.entity.Guest;
 import com.project.hotelmanagementsystem.entity.Reservation;
 
 import java.time.LocalDate;
@@ -18,6 +22,14 @@ public interface ReservationService {
      * @return 预订信息
      */
     Optional<Reservation> findById(Integer id);
+
+    /**
+     * 根据ID查询预订详情（包含房间明细、酒店、客人信息）
+     *
+     * @param id 预订ID
+     * @return 预订详情响应
+     */
+    Optional<ReservationResponse> findDetailById(Integer id);
 
     /**
      * 查询所有预订
@@ -66,6 +78,14 @@ public interface ReservationService {
     List<Reservation> findByEmployeeId(Integer employeeId);
 
     /**
+     * 办理退房（员工端）
+     *
+     * @param id 预订ID
+     * @return 预订详情
+     */
+    ReservationResponse checkOutReservation(Integer id);
+
+    /**
      * 根据客人ID和状态查询预订列表
      *
      * @param guestId 客人ID
@@ -82,4 +102,89 @@ public interface ReservationService {
      * @return 预订列表
      */
     List<Reservation> findByCheckInDateBetween(LocalDate checkInDate, LocalDate checkOutDate);
+
+    /**
+     * 创建预订
+     *
+     * @param request 创建预订请求
+     * @param guest   客人信息
+     * @return 预订详情响应
+     */
+    ReservationResponse createReservation(CreateReservationRequest request, Guest guest);
+
+    /**
+     * 确认预订（分配房间）
+     *
+     * @param id         预订ID
+     * @param employeeId 员工ID
+     * @param roomId     房间ID
+     * @return 预订详情响应
+     */
+    ReservationResponse confirmReservation(Integer id, Integer employeeId, Integer roomId);
+
+    /**
+     * 取消预订
+     *
+     * @param id 预订ID
+     * @return 预订详情响应
+     */
+    ReservationResponse cancelReservation(Integer id);
+
+    /**
+     * 办理入住（携带同住客人信息）
+     *
+     * @param id          预订ID
+     * @param stayGuests  同住客人信息列表（不含主登记人）
+     * @return 预订详情响应
+     */
+    ReservationResponse checkInReservation(Integer id, List<CreateCheckInRequest.StayGuestRequest> stayGuests);
+
+    /**
+     * 分配房间（在已确认状态下分配房间）
+     *
+     * @param id     预订ID
+     * @param roomId 房间ID
+     * @return 预订详情响应
+     */
+    ReservationResponse assignRoom(Integer id, Integer roomId);
+
+    /**
+     * 根据客人ID查询预订详情列表
+     *
+     * @param guestId 客人ID
+     * @return 预订详情列表
+     */
+    List<ReservationResponse> findDetailByGuestId(Integer guestId);
+
+    /**
+     * 根据客人手机号查询预订列表
+     *
+     * @param phone 客人手机号
+     * @return 预订详情列表
+     */
+    List<ReservationResponse> findByGuestPhone(String phone);
+
+    /**
+     * 根据客人邮箱查询预订列表
+     *
+     * @param email 客人邮箱
+     * @return 预订详情列表
+     */
+    List<ReservationResponse> findByGuestEmail(String email);
+
+    /**
+     * 根据客人姓名查询预订列表
+     *
+     * @param name 客人姓名
+     * @return 预订详情列表
+     */
+    List<ReservationResponse> findByGuestName(String name);
+
+    /**
+     * 按酒店过滤查询所有预订
+     *
+     * @param hotelId 酒店ID（为空则查询全部）
+     * @return 预订详情列表
+     */
+    List<ReservationResponse> findAllWithHotelFilter(Integer hotelId);
 }

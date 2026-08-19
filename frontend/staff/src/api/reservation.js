@@ -1,21 +1,105 @@
 import request from '../utils/request'
 
-export const getReservations = () => {
-  return request.get('/reservations')
+/**
+ * 查询预订列表（按酒店过滤）
+ * @param {Number} hotelId - 酒店ID（可选）
+ * @returns {Promise} 预订列表
+ */
+export const getReservations = (hotelId) => {
+  const params = hotelId ? `?hotelId=${hotelId}` : ''
+  return request.get(`/reservations${params}`)
 }
 
+/**
+ * 查询预订详情
+ * @param {Number} id - 预订ID
+ * @returns {Promise} 预订详情
+ */
 export const getReservationById = (id) => {
   return request.get(`/reservations/${id}`)
 }
 
+/**
+ * 创建预订
+ * @param {Object} data - 预订信息
+ * @returns {Promise} 创建结果
+ */
 export const createReservation = (data) => {
-  return request.post('/reservations', data)
+  return request.post('/reservations/create', data)
 }
 
-export const updateReservation = (id, data) => {
-  return request.put(`/reservations/${id}`, data)
+/**
+ * 确认预订
+ * @param {Number} id - 预订ID
+ * @param {Number} roomId - 房间ID（可选）
+ * @returns {Promise} 确认结果
+ */
+export const confirmReservation = (id, roomId) => {
+  return request.put(`/reservations/${id}/confirm`, { roomId })
 }
 
-export const deleteReservation = (id) => {
-  return request.delete(`/reservations/${id}`)
+/**
+ * 取消预订
+ * @param {Number} id - 预订ID
+ * @returns {Promise} 取消结果
+ */
+export const cancelReservation = (id) => {
+  return request.put(`/reservations/${id}/cancel`)
+}
+
+/**
+ * 办理入住（支持同住客人信息）
+ * @param {Number} id - 预订ID
+ * @param {Array} [stayGuests] - 同住客人信息列表（不含主登记人）
+ * @returns {Promise} 入住结果
+ */
+export const checkInReservation = (id, stayGuests) => {
+  const data = stayGuests && stayGuests.length > 0 ? { stayGuests } : {}
+  return request.put(`/reservations/${id}/check-in`, data)
+}
+
+/**
+ * 办理退房
+ * @param {Number} id - 预订ID
+ * @returns {Promise} 退房结果
+ */
+export const checkOutReservation = (id) => {
+  return request.put(`/reservations/${id}/check-out`)
+}
+
+/**
+ * 分配房间
+ * @param {Number} id - 预订ID
+ * @param {Number} roomId - 房间ID
+ * @returns {Promise} 分配结果
+ */
+export const assignRoom = (id, roomId) => {
+  return request.put(`/reservations/${id}/assign-room`, { roomId })
+}
+
+/**
+ * 通过客人手机号查询预订
+ * @param {String} phone - 手机号
+ * @returns {Promise} 预订列表
+ */
+export const searchByGuestPhone = (phone) => {
+  return request.get(`/reservations/search/byGuestPhone?phone=${phone}`)
+}
+
+/**
+ * 通过客人邮箱查询预订
+ * @param {String} email - 邮箱
+ * @returns {Promise} 预订列表
+ */
+export const searchByGuestEmail = (email) => {
+  return request.get(`/reservations/search/byGuestEmail?email=${email}`)
+}
+
+/**
+ * 通过客人姓名查询预订
+ * @param {String} name - 姓名
+ * @returns {Promise} 预订列表
+ */
+export const searchByGuestName = (name) => {
+  return request.get(`/reservations/search/byGuestName?name=${name}`)
 }

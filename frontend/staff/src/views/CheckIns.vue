@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-header">
       <h2>入住管理</h2>
-      <el-button type="primary" @click="showAddDialog = true">办理入住</el-button>
+      <el-button type="primary" @click="showAddDialog = true">未预约入住</el-button>
     </div>
     
     <el-table :data="checkIns" border>
@@ -21,39 +21,83 @@
       <el-table-column prop="totalCharge" label="总费用">
         <template #default="{ row }">¥{{ row.totalCharge || 0 }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="100">
         <template #default="{ row }">
-          <el-button size="small" @click="editCheckIn(row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="checkOut(row)" v-if="row.status === 'in_house'">退房</el-button>
+          <el-button size="small" type="danger" @click="handleCheckOut(row)" v-if="row.status === 'in_house'">退房</el-button>
         </template>
       </el-table-column>
     </el-table>
     
-    <el-dialog v-model="showAddDialog" title="办理入住" width="600px">
+    <el-dialog v-model="showAddDialog" title="未预约入住" width="800px">
       <el-form :model="form" label-width="100px">
-        <el-form-item label="预订ID">
-          <el-input v-model.number="form.reservationId" type="number" />
+        <el-divider content-position="left">主登记人信息</el-divider>
+        <el-form-item label="姓名" required>
+          <el-input v-model="form.guestName" placeholder="请输入主登记人姓名" />
         </el-form-item>
-        <el-form-item label="客人ID" required>
-          <el-input v-model.number="form.guestId" type="number" />
+        <el-form-item label="证件类型" required>
+          <el-select v-model="form.idType" placeholder="请选择证件类型">
+            <el-option label="身份证" value="id_card" />
+            <el-option label="护照" value="passport" />
+            <el-option label="驾驶证" value="drivers_license" />
+            <el-option label="其他" value="other" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="房间ID" required>
-          <el-select v-model="form.roomId">
+        <el-form-item label="证件号码" required>
+          <el-input v-model="form.idNumber" placeholder="请输入证件号码" />
+        </el-form-item>
+        <el-form-item label="手机号" required>
+          <el-input v-model="form.phone" placeholder="请输入联系电话" />
+        </el-form-item>
+        
+        <el-divider content-position="left">入住信息</el-divider>
+        <el-form-item label="房型" required>
+          <el-select v-model="form.roomTypeId" placeholder="请选择房型" @change="handleRoomTypeChange">
+            <el-option v-for="rt in roomTypes" :key="rt.id" :label="rt.name" :value="rt.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="房间号" required>
+          <el-select v-model="form.roomId" placeholder="请选择空闲房间" :disabled="!selectedRoomType">
             <el-option v-for="room in availableRooms" :key="room.id" :label="room.roomNumber" :value="room.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="成人">
-          <el-input v-model.number="form.adults" type="number" :min="1" />
+        <el-form-item label="成人" required>
+          <el-input v-model.number="form.adults" type="number" :min="1" placeholder="成人数量" />
         </el-form-item>
         <el-form-item label="儿童">
-          <el-input v-model.number="form.children" type="number" :min="0" />
+          <el-input v-model.number="form.children" type="number" :min="0" placeholder="儿童数量" />
         </el-form-item>
-        <el-form-item label="预计退房时间">
-          <el-date-picker v-model="form.expectedCheckOutTime" type="datetime" style="width: 100%" />
+        <el-form-item label="预计退房时间" required>
+          <el-date-picker v-model="form.expectedCheckOutTime" type="datetime" style="width: 100%" placeholder="选择预计退房时间" />
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="form.notes" type="textarea" />
+          <el-input v-model="form.notes" type="textarea" placeholder="入住备注" />
         </el-form-item>
+        
+        <el-divider content-position="left">同住人员</el-divider>
+        <div v-if="form.stayGuests.length === 0" style="color: #999; padding: 10px;">
+          单人入住，无需填写同住人员信息
+        </div>
+        <div v-for="(guest, index) in form.stayGuests" :key="index" class="stay-guest-item">
+          <div class="stay-guest-header">同住人员 {{ index + 1 }}</div>
+          <el-form-item label="姓名" required>
+            <el-input v-model="guest.name" placeholder="请输入姓名" />
+          </el-form-item>
+          <el-form-item label="证件类型">
+            <el-select v-model="guest.idType" placeholder="请选择证件类型">
+              <el-option label="身份证" value="id_card" />
+              <el-option label="护照" value="passport" />
+              <el-option label="驾驶证" value="drivers_license" />
+              <el-option label="其他" value="other" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="证件号" required>
+            <el-input v-model="guest.idNumber" placeholder="请输入证件号码" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="danger" size="small" @click="removeStayGuest(index)">删除</el-button>
+          </el-form-item>
+        </div>
+        <el-button type="primary" size="small" @click="addStayGuest" style="margin-top: 10px">添加同住人员</el-button>
       </el-form>
       <template #footer>
         <el-button @click="showAddDialog = false">取消</el-button>
@@ -64,26 +108,38 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getCheckIns, createCheckIn, updateCheckIn } from '../api/checkin'
-import { getRooms } from '../api/room'
+import { getCheckIns, createCheckIn, checkOut as checkOutApi } from '../api/checkin'
+import { getRooms, getRoomsByType } from '../api/room'
+import { getRoomTypes } from '../api/roomType'
+import { state as authState } from '../stores/auth'
 
 const checkIns = ref([])
 const availableRooms = ref([])
+const roomTypes = ref([])
 const showAddDialog = ref(false)
 
 const form = reactive({
-  id: null,
-  reservationId: null,
-  guestId: null,
+  guestName: '',
+  idType: 'id_card',
+  idNumber: '',
+  phone: '',
+  roomTypeId: null,
   roomId: null,
   adults: 1,
   children: 0,
-  checkInTime: new Date().toISOString().slice(0, 16),
   expectedCheckOutTime: '',
-  status: 'in_house',
-  notes: ''
+  notes: '',
+  stayGuests: []
+})
+
+const currentHotelId = computed(() => {
+  return authState.staff?.hotelId || null
+})
+
+const selectedRoomType = computed(() => {
+  return form.roomTypeId !== null && form.roomTypeId !== undefined
 })
 
 const getStatusType = (status) => {
@@ -109,11 +165,24 @@ const loadCheckIns = async () => {
     const response = await getCheckIns()
     checkIns.value = (response.data || []).map(c => ({
       ...c,
-      guestName: `${c.guest?.firstName} ${c.guest?.lastName}`,
-      roomNumber: c.room?.roomNumber
+      guestName: c.guestName || '未登记',
+      roomNumber: c.room?.roomNumber || '未分配'
     }))
   } catch (error) {
     ElMessage.error('加载入住列表失败')
+  }
+}
+
+const loadRoomTypes = async () => {
+  try {
+    const response = await getRoomTypes()
+    let allRoomTypes = response.data || []
+    if (currentHotelId.value) {
+      allRoomTypes = allRoomTypes.filter(rt => rt.hotelId === currentHotelId.value)
+    }
+    roomTypes.value = allRoomTypes
+  } catch (error) {
+    console.error('加载房型失败', error)
   }
 }
 
@@ -126,52 +195,141 @@ const loadAvailableRooms = async () => {
   }
 }
 
-const editCheckIn = (row) => {
-  Object.assign(form, row)
-  showAddDialog.value = true
+const handleRoomTypeChange = async (roomTypeId) => {
+  form.roomId = null
+  if (!roomTypeId) {
+    availableRooms.value = []
+    return
+  }
+  try {
+    const response = await getRoomsByType(roomTypeId)
+    let rooms = response.data || []
+    if (currentHotelId.value) {
+      rooms = rooms.filter(r => r.hotelId === currentHotelId.value)
+    }
+    availableRooms.value = rooms.filter(r => r.status === 'vacant')
+  } catch (error) {
+    console.error('加载房间失败', error)
+    availableRooms.value = []
+  }
+}
+
+const addStayGuest = () => {
+  form.stayGuests.push({ name: '', idType: 'id_card', idNumber: '', isPrimary: false })
+}
+
+const removeStayGuest = (index) => {
+  form.stayGuests.splice(index, 1)
 }
 
 const saveCheckIn = async () => {
-  if (!form.guestId || !form.roomId) {
-    ElMessage.warning('请填写客人ID和房间号')
+  if (!form.guestName) {
+    ElMessage.warning('请填写主登记人姓名')
+    return
+  }
+  if (!form.idType) {
+    ElMessage.warning('请选择证件类型')
+    return
+  }
+  if (!form.idNumber) {
+    ElMessage.warning('请填写证件号码')
+    return
+  }
+  if (!form.phone) {
+    ElMessage.warning('请填写联系电话')
+    return
+  }
+  if (!form.roomId) {
+    ElMessage.warning('请选择房间号')
+    return
+  }
+  if (!form.adults || form.adults < 1) {
+    ElMessage.warning('请填写至少1位成人')
+    return
+  }
+  if (!form.expectedCheckOutTime) {
+    ElMessage.warning('请选择预计退房时间')
+    return
+  }
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const checkOut = new Date(form.expectedCheckOutTime)
+  const checkOutDate = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate())
+  if (checkOutDate <= today) {
+    ElMessage.warning('预计退房日期必须晚于今天')
+    return
+  }
+
+  const validStayGuests = form.stayGuests.filter(g => g.idNumber && g.name)
+
+  // 校验人数一致性：填写人数（主登记人+同住人员）必须等于 成人+儿童 总数
+  const totalRegistered = 1 + validStayGuests.length
+  const totalDeclared = (form.adults || 0) + (form.children || 0)
+  if (totalRegistered > totalDeclared) {
+    ElMessage.warning(`登记人数(${totalRegistered})超过了填写的人数(${totalDeclared})，请减少同住人员或增加成人/儿童数`)
+    return
+  }
+  if (totalRegistered < totalDeclared) {
+    ElMessage.warning(`登记人数(${totalRegistered})少于填写的人数(${totalDeclared})，请补充同住人员信息`)
     return
   }
   
+  const submitData = {
+    guestName: form.guestName,
+    idType: form.idType,
+    idNumber: form.idNumber,
+    phone: form.phone,
+    roomId: form.roomId,
+    adults: form.adults,
+    children: form.children || 0,
+    expectedCheckOutTime: form.expectedCheckOutTime,
+    notes: form.notes,
+    stayGuests: validStayGuests.length > 0 ? validStayGuests : undefined
+  }
+  
   try {
-    if (form.id) {
-      await updateCheckIn(form.id, form)
-      ElMessage.success('更新成功')
-    } else {
-      await createCheckIn(form)
-      ElMessage.success('入住成功')
-    }
+    await createCheckIn(submitData)
+    ElMessage.success('入住成功')
     showAddDialog.value = false
+    form.guestName = ''
+    form.idType = 'id_card'
+    form.idNumber = ''
+    form.phone = ''
+    form.roomTypeId = null
+    form.roomId = null
+    form.adults = 1
+    form.children = 0
+    form.expectedCheckOutTime = ''
+    form.notes = ''
+    form.stayGuests = []
+    availableRooms.value = []
     loadCheckIns()
-    loadAvailableRooms()
+    loadRoomTypes()
   } catch (error) {
-    ElMessage.error('操作失败')
+    const errMsg = error?.response?.data?.message || error?.message || '操作失败'
+    ElMessage.error(errMsg)
   }
 }
 
-const checkOut = async (row) => {
+const handleCheckOut = async (row) => {
   try {
     await ElMessageBox.confirm('确定要办理退房吗？', '提示', {
       type: 'warning'
     })
-    await updateCheckIn(row.id, { ...row, status: 'checked_out', actualCheckOutTime: new Date().toISOString() })
+    await checkOutApi(row.id)
     ElMessage.success('退房成功')
     loadCheckIns()
-    loadAvailableRooms()
+    loadRoomTypes()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('操作失败')
+      ElMessage.error(error?.response?.data?.message || '操作失败')
     }
   }
 }
 
 onMounted(() => {
   loadCheckIns()
-  loadAvailableRooms()
+  loadRoomTypes()
 })
 </script>
 
@@ -191,5 +349,25 @@ onMounted(() => {
   margin: 0;
   font-size: 24px;
   color: #333;
+}
+
+.stay-guest-item {
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  background: #fafafa;
+}
+
+.stay-guest-header {
+  font-weight: bold;
+  color: #409eff;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.stay-guest-item :deep(.el-form-item) {
+  margin-bottom: 10px;
 }
 </style>

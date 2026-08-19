@@ -29,6 +29,10 @@
             <el-icon><Monitor /></el-icon>
             <span>设施管理</span>
           </el-menu-item>
+          <el-menu-item index="/room-type-facilities" v-if="hasPermission('roomTypeFacilities')">
+            <el-icon><Connection /></el-icon>
+            <span>房型设施关联</span>
+          </el-menu-item>
           <el-menu-item index="/reservations" v-if="hasPermission('reservations')">
             <el-icon><Calendar /></el-icon>
             <span>预订管理</span>
@@ -50,7 +54,10 @@
       <el-container>
         <el-header class="header">
           <div class="header-right">
-            <span class="welcome">欢迎, {{ state.staff?.firstName }} {{ state.staff?.lastName }}</span>
+            <el-avatar :size="36" :style="{ backgroundColor: avatarColor }">
+              {{ avatarText }}
+            </el-avatar>
+            <span class="welcome">欢迎, {{ displayName }}</span>
             <el-button type="primary" @click="handleLogout">退出登录</el-button>
           </div>
         </el-header>
@@ -66,7 +73,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { HomeFilled, User, OfficeBuilding, Grid, Calendar, Key, Wallet, UserFilled, Monitor } from '@element-plus/icons-vue'
+import { HomeFilled, User, OfficeBuilding, Grid, Calendar, Key, Wallet, UserFilled, Monitor, Connection } from '@element-plus/icons-vue'
 import { state, logout } from './stores/auth'
 
 const route = useRoute()
@@ -74,9 +81,26 @@ const router = useRouter()
 
 const activeMenu = computed(() => route.path)
 
+const displayName = computed(() => {
+  const last = state.staff?.lastName || ''
+  const first = state.staff?.firstName || ''
+  return (last + first) || state.staff?.username || '员工'
+})
+
+const avatarColor = computed(() => {
+  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#8b5cf6', '#ec4899']
+  const index = (state.staff?.username?.charCodeAt(0) || 0) % colors.length
+  return colors[index]
+})
+
+const avatarText = computed(() => {
+  const name = displayName.value
+  return name ? name.charAt(0) : 'U'
+})
+
 const rolePermissions = {
-  admin: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'reservations', 'checkins', 'bills'],
-  manager: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'reservations', 'checkins', 'bills'],
+  admin: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'reservations', 'checkins', 'bills'],
+  manager: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'reservations', 'checkins', 'bills'],
   front_desk: ['rooms', 'reservations', 'checkins', 'bills'],
   housekeeping: ['rooms'],
   finance: ['bills']

@@ -6,44 +6,47 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 同住客人Service接口
+ * 同住客人服务接口
+ * <p>
+ * 提供同住客人管理相关的业务逻辑。
+ * </p>
  */
 public interface StayGuestService {
 
     /**
-     * 根据ID查询同住客人
+     * 根据ID查询同住客人记录
      *
-     * @param id 同住客人ID
-     * @return 同住客人信息
+     * @param id 同住客人记录ID
+     * @return 同住客人记录（可能为空）
      */
     Optional<StayGuest> findById(Integer id);
 
     /**
-     * 查询所有同住客人
+     * 查询所有同住客人记录
      *
-     * @return 同住客人列表
+     * @return 同住客人记录列表
      */
     List<StayGuest> findAll();
 
     /**
-     * 保存/更新同住客人
+     * 保存同住客人记录
      *
-     * @param stayGuest 同住客人信息
-     * @return 保存后的同住客人信息
+     * @param stayGuest 同住客人记录
+     * @return 保存后的记录
      */
     StayGuest save(StayGuest stayGuest);
 
     /**
-     * 根据ID删除同住客人
+     * 根据ID删除同住客人记录
      *
-     * @param id 同住客人ID
+     * @param id 同住客人记录ID
      */
     void deleteById(Integer id);
 
     /**
-     * 根据入住ID查询同住客人列表
+     * 根据入住记录ID查询同住客人列表
      *
-     * @param checkInId 入住ID
+     * @param checkInId 入住记录ID
      * @return 同住客人列表
      */
     List<StayGuest> findByCheckInId(Integer checkInId);
@@ -57,11 +60,17 @@ public interface StayGuestService {
     List<StayGuest> findByGuestId(Integer guestId);
 
     /**
-     * 根据入住ID和是否主客查询
+     * 批量保存同住客人记录
      *
-     * @param checkInId 入住ID
-     * @param isPrimary 是否主客
-     * @return 同住客人列表
+     * @param stayGuests 同住客人记录列表
+     * @return 保存后的记录列表
      */
-    List<StayGuest> findByCheckInIdAndIsPrimary(Integer checkInId, Boolean isPrimary);
+    List<StayGuest> saveAll(List<StayGuest> stayGuests);
+
+    /**
+     * 根据入住记录ID删除所有同住客人记录
+     *
+     * @param checkInId 入住记录ID
+     */
+    void deleteByCheckInId(Integer checkInId);
 }

@@ -23,6 +23,13 @@ request.interceptors.response.use(response => {
     localStorage.removeItem('staff')
     window.location.href = '/login'
   }
+  if (error.response && error.response.data) {
+    return Promise.reject({
+      code: error.response.data.code,
+      message: error.response.data.message,
+      data: error.response.data.data
+    })
+  }
   return Promise.reject(error)
 })
 

@@ -31,3 +31,15 @@ export const searchByHotelId = (hotelId) => {
 export const searchByRole = (role) => {
   return request.get('/employees/search/byRole', { params: { role } })
 }
+
+export const getProfile = () => {
+  return request.get('/employees/profile')
+}
+
+export const updateProfile = (data) => {
+  return request.put('/employees/profile', data)
+}
+
+export const changePassword = (data) => {
+  return request.put('/employees/password', data)
+}

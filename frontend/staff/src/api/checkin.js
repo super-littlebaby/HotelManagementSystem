@@ -19,3 +19,7 @@ export const updateCheckIn = (id, data) => {
 export const deleteCheckIn = (id) => {
   return request.delete(`/check-ins/${id}`)
 }
+
+export const checkOut = (id) => {
+  return request.put(`/check-ins/${id}/check-out`)
+}

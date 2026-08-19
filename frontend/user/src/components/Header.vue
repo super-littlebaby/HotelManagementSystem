@@ -29,7 +29,7 @@ const handleLogout = () => {
         </div>
         <nav class="nav">
           <router-link to="/" class="nav-link">首页</router-link>
-          <router-link to="/reservation" class="nav-link" @click.prevent="goToReservation">在线预订</router-link>
+          <span class="nav-link cursor-pointer" @click="goToReservation">在线预订</span>
           <router-link to="/my-reservations" class="nav-link" v-if="state.isLoggedIn">我的预订</router-link>
           <router-link to="/profile" class="nav-link" v-if="state.isLoggedIn">个人中心</router-link>
         </nav>
@@ -83,6 +83,10 @@ const handleLogout = () => {
 
 .nav-link:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }
 
 .auth {

@@ -19,3 +19,7 @@ export const updateHotel = (id, data) => {
 export const deleteHotel = (id) => {
   return request.delete(`/hotels/${id}`)
 }
+
+export const searchHotelsByName = (name) => {
+  return request.get('/hotels/search/byName', { params: { name } })
+}

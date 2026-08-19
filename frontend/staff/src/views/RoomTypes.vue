@@ -33,11 +33,7 @@
     
     <el-dialog v-model="showAddDialog" title="添加房型" width="500px">
       <el-form :model="form" label-width="80px">
-        <el-form-item label="所属酒店" required>
-          <el-select v-model="form.hotelId">
-            <el-option v-for="hotel in hotels" :key="hotel.id" :label="hotel.name" :value="hotel.id" />
-          </el-select>
-        </el-form-item>
+        <HotelSelect v-model="form.hotelId" label="所属酒店" :required="true" />
         <el-form-item label="房型名称" required>
           <el-input v-model="form.name" />
         </el-form-item>
@@ -45,16 +41,16 @@
           <el-input v-model="form.description" type="textarea" />
         </el-form-item>
         <el-form-item label="最大成人">
-          <el-input v-model.number="form.maxAdults" type="number" min="1" />
+          <el-input v-model="form.maxAdults" />
         </el-form-item>
         <el-form-item label="最大儿童">
-          <el-input v-model.number="form.maxChildren" type="number" min="0" />
+          <el-input v-model="form.maxChildren" />
         </el-form-item>
         <el-form-item label="基础价格" required>
-          <el-input v-model.number="form.basePrice" type="number" step="0.01" />
+          <el-input v-model="form.basePrice" />
         </el-form-item>
         <el-form-item label="面积(㎡)">
-          <el-input v-model.number="form.area" type="number" step="0.1" />
+          <el-input v-model="form.area" />
         </el-form-item>
         <el-form-item label="床型">
           <el-select v-model="form.bedType">
@@ -81,6 +77,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getRoomTypes, createRoomType, updateRoomType, deleteRoomType as deleteRoomTypeApi } from '../api/roomType'
 import { getHotels } from '../api/hotel'
 import { state as authState } from '../stores/auth'
+import HotelSelect from '../components/HotelSelect.vue'
 
 const roomTypes = ref([])
 const hotels = ref([])
@@ -97,10 +94,10 @@ const form = reactive({
   hotelId: null,
   name: '',
   description: '',
-  maxAdults: 2,
-  maxChildren: 1,
-  basePrice: null,
-  area: null,
+  maxAdults: '',
+  maxChildren: '',
+  basePrice: '',
+  area: '',
   bedType: ''
 })
 
@@ -155,15 +152,37 @@ const saveRoomType = async () => {
     return
   }
   
+  const data = {
+    hotelId: form.hotelId,
+    name: form.name,
+    description: form.description,
+    maxAdults: form.maxAdults ? parseInt(form.maxAdults) : 0,
+    maxChildren: form.maxChildren ? parseInt(form.maxChildren) : 0,
+    basePrice: form.basePrice ? parseFloat(form.basePrice) : 0,
+    area: form.area ? parseFloat(form.area) : null,
+    bedType: form.bedType
+  }
+  
   try {
     if (form.id) {
-      await updateRoomType(form.id, form)
+      await updateRoomType(form.id, { ...data, id: form.id })
       ElMessage.success('更新成功')
     } else {
-      await createRoomType(form)
+      await createRoomType(data)
       ElMessage.success('创建成功')
     }
     showAddDialog.value = false
+    Object.assign(form, {
+      id: null,
+      hotelId: null,
+      name: '',
+      description: '',
+      maxAdults: '',
+      maxChildren: '',
+      basePrice: '',
+      area: '',
+      bedType: ''
+    })
     loadRoomTypes()
   } catch (error) {
     ElMessage.error('操作失败')

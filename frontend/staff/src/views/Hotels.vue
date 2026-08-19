@@ -58,7 +58,7 @@ const showAddDialog = ref(false)
 const currentRole = computed(() => authState.staff?.role || '')
 const currentHotelId = computed(() => authState.staff?.hotelId)
 
-const isGroupAdmin = computed(() => currentRole.value === 'admin' && currentHotelId.value === null)
+const isGroupAdmin = computed(() => currentRole.value === 'admin')
 
 const canAddHotel = computed(() => {
   return isGroupAdmin.value
@@ -104,17 +104,22 @@ const saveHotel = async () => {
   }
   
   try {
+    let res
     if (form.id) {
-      await updateHotel(form.id, form)
-      ElMessage.success('更新成功')
+      res = await updateHotel(form.id, form)
     } else {
-      await createHotel(form)
-      ElMessage.success('创建成功')
+      res = await createHotel(form)
     }
-    showAddDialog.value = false
-    loadHotels()
+    
+    if (res.code === 200) {
+      ElMessage.success(form.id ? '更新成功' : '创建成功')
+      showAddDialog.value = false
+      loadHotels()
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
   } catch (error) {
-    ElMessage.error('操作失败')
+    ElMessage.error(error.message || '操作失败')
   }
 }
 
@@ -123,12 +128,16 @@ const deleteHotel = async (row) => {
     await ElMessageBox.confirm('确定要删除该酒店吗？', '提示', {
       type: 'warning'
     })
-    await deleteHotelApi(row.id)
-    ElMessage.success('删除成功')
-    loadHotels()
+    const res = await deleteHotelApi(row.id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      loadHotels()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+      ElMessage.error(error.message || '删除失败')
     }
   }
 }

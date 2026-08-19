@@ -1,5 +1,6 @@
 package com.project.hotelmanagementsystem.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,8 +20,23 @@ public class CheckIn {
     @Column(name = "reservation_id")
     private Integer reservationId;
 
-    @Column(name = "guest_id", nullable = false)
+    @Column(name = "hotel_id")
+    private Integer hotelId;
+
+    @Column(name = "guest_id")
     private Integer guestId;
+
+    @Column(name = "guest_name", length = 100)
+    private String guestName;
+
+    @Column(name = "id_type", length = 20)
+    private String idType;
+
+    @Column(name = "id_number", length = 200)
+    private String idNumber;
+
+    @Column(name = "phone", length = 20)
+    private String phone;
 
     @Column(name = "room_id", nullable = false)
     private Integer roomId;
@@ -52,6 +68,19 @@ public class CheckIn {
     @Column(name = "notes", columnDefinition = "VARCHAR(MAX)")
     private String notes;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "room_id", insertable = false, updatable = false)
+    @JsonIgnoreProperties({"hotel", "roomType"})
+    private Room room;
+
+    public Room getRoom() {
+        return room;
+    }
+
+    public void setRoom(Room room) {
+        this.room = room;
+    }
+
     public Integer getId() {
         return id;
     }
@@ -68,12 +97,52 @@ public class CheckIn {
         this.reservationId = reservationId;
     }
 
+    public Integer getHotelId() {
+        return hotelId;
+    }
+
+    public void setHotelId(Integer hotelId) {
+        this.hotelId = hotelId;
+    }
+
     public Integer getGuestId() {
         return guestId;
     }
 
     public void setGuestId(Integer guestId) {
         this.guestId = guestId;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public void setGuestName(String guestName) {
+        this.guestName = guestName;
+    }
+
+    public String getIdType() {
+        return idType;
+    }
+
+    public void setIdType(String idType) {
+        this.idType = idType;
+    }
+
+    public String getIdNumber() {
+        return idNumber;
+    }
+
+    public void setIdNumber(String idNumber) {
+        this.idNumber = idNumber;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public Integer getRoomId() {

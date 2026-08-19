@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage, ElLoading } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { getHotelById } from '../api/hotel'
 import { getRoomTypes } from '../api/room'
 
@@ -44,6 +44,8 @@ const loadRoomTypes = async (hotelId) => {
   }
 }
 
+const roomDefaultImage = 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=luxury%20modern%20hotel%20bedroom%20interior%20with%20comfortable%20bed%20and%20warm%20lighting&image_size=landscape_4_3'
+
 const goToReservation = () => {
   const isLoggedIn = localStorage.getItem('token')
   if (!isLoggedIn) {
@@ -76,10 +78,6 @@ const goToReservation = () => {
               <span class="label">邮箱</span>
               <span class="value">{{ hotel.email }}</span>
             </div>
-            <div class="info-item">
-              <span class="label">星级</span>
-              <span class="value">{{ hotel.starRating }} 星</span>
-            </div>
           </div>
           <div class="description">
             <h3>酒店介绍</h3>
@@ -96,17 +94,17 @@ const goToReservation = () => {
               :key="roomType.id"
             >
               <div class="room-image">
-                <img :src="`https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=luxury%20hotel%20room%20interior%20${roomType.name}&image_size=landscape_4_3`" alt="房型图片" />
+                <img :src="roomDefaultImage" :alt="roomType.name" />
               </div>
               <div class="room-info">
                 <h4>{{ roomType.name }}</h4>
                 <p class="bed-type">🛏️ {{ roomType.bedType }}</p>
                 <p class="area">📐 {{ roomType.area }} 平方米</p>
-                <p class="capacity">👥 最多 {{ roomType.maxOccupancy }} 人</p>
+                <p class="capacity">👥 最多 {{ roomType.maxAdults }} 成人 / {{ roomType.maxChildren }} 儿童</p>
                 <p class="description">{{ roomType.description }}</p>
                 <div class="price">
                   <span class="currency">¥</span>
-                  <span class="amount">{{ roomType.pricePerNight }}</span>
+                  <span class="amount">{{ roomType.basePrice }}</span>
                   <span class="unit">/晚</span>
                 </div>
               </div>
@@ -207,10 +205,15 @@ const goToReservation = () => {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
+.room-image {
+  background: #f5f5f5;
+}
+
 .room-image img {
   width: 100%;
-  height: 180px;
+  height: 200px;
   object-fit: cover;
+  display: block;
 }
 
 .room-info {

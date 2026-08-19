@@ -1,6 +1,9 @@
 package com.project.hotelmanagementsystem.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 @Entity
@@ -11,6 +14,7 @@ public class RoomType {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @NotNull(message = "酒店ID不能为空")
     @Column(name = "hotel_id", nullable = false)
     private Integer hotelId;
 
@@ -18,9 +22,12 @@ public class RoomType {
     @JoinColumn(name = "hotel_id", insertable = false, updatable = false)
     private Hotel hotel;
 
+    @NotBlank(message = "房型名称不能为空")
+    @Size(max = 100, message = "房型名称长度不能超过100个字符")
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
+    @Size(max = 500, message = "描述长度不能超过500个字符")
     @Column(name = "description", columnDefinition = "VARCHAR(MAX)")
     private String description;
 
@@ -30,12 +37,14 @@ public class RoomType {
     @Column(name = "max_children")
     private Integer maxChildren;
 
+    @NotNull(message = "基础价格不能为空")
     @Column(name = "base_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal basePrice;
 
     @Column(name = "area", precision = 5, scale = 1)
     private BigDecimal area;
 
+    @Size(max = 50, message = "床型长度不能超过50个字符")
     @Column(name = "bed_type", length = 50)
     private String bedType;
 

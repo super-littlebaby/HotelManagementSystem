@@ -58,12 +58,7 @@
             <el-option label="财务" value="finance" />
           </el-select>
         </el-form-item>
-        <el-form-item label="所属酒店">
-          <el-select v-model="form.hotelId" placeholder="选择酒店（空表示集团权限）">
-            <el-option label="集团权限（所有酒店）" :value="null" />
-            <el-option v-for="hotel in hotels" :key="hotel.id" :label="hotel.name" :value="hotel.id" />
-          </el-select>
-        </el-form-item>
+        <HotelSelect v-model="form.hotelId" label="所属酒店" :required="false" />
         <el-form-item label="电话">
           <el-input v-model="form.phone" />
         </el-form-item>
@@ -85,6 +80,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getEmployees, createEmployee, updateEmployee, deleteEmployee as deleteEmployeeApi } from '../api/employee'
 import { getHotels } from '../api/hotel'
 import { state as authState } from '../stores/auth'
+import HotelSelect from '../components/HotelSelect.vue'
 
 const employees = ref([])
 const hotels = ref([])

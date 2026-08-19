@@ -41,6 +41,15 @@ public interface CheckInService {
     void deleteById(Integer id);
 
     /**
+     * 保存入住记录并同时保存同住人员
+     *
+     * @param checkIn    入住记录
+     * @param stayGuests 同住人员列表
+     * @return 保存后的入住记录
+     */
+    CheckIn saveWithStayGuests(CheckIn checkIn, java.util.List<com.project.hotelmanagementsystem.entity.StayGuest> stayGuests);
+
+    /**
      * 根据客人ID查询入住记录列表
      *
      * @param guestId 客人ID
@@ -80,4 +89,12 @@ public interface CheckInService {
      * @return 入住记录列表
      */
     List<CheckIn> findByRoomIdAndStatus(Integer roomId, String status);
+
+    /**
+     * 办理退房
+     *
+     * @param id 入住记录ID
+     * @return 更新后的入住记录信息
+     */
+    CheckIn checkOut(Integer id);
 }

@@ -4,25 +4,27 @@ import com.project.hotelmanagementsystem.common.ResponseResult;
 import com.project.hotelmanagementsystem.entity.Employee;
 import com.project.hotelmanagementsystem.entity.RoomType;
 import com.project.hotelmanagementsystem.service.DataIsolationService;
-import com.project.hotelmanagementsystem.service.impl.RoomTypeServiceImpl;
+import com.project.hotelmanagementsystem.service.RoomTypeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Tag(name = "房型管理", description = "房型信息的增删改查及条件检索接口")
 @RestController
 @RequestMapping("/api/room-types")
 public class RoomTypeController {
 
-    private final RoomTypeServiceImpl roomTypeService;
+    private final RoomTypeService roomTypeService;
     private final DataIsolationService dataIsolationService;
 
-    public RoomTypeController(RoomTypeServiceImpl roomTypeService, DataIsolationService dataIsolationService) {
+    public RoomTypeController(RoomTypeService roomTypeService, DataIsolationService dataIsolationService) {
         this.roomTypeService = roomTypeService;
         this.dataIsolationService = dataIsolationService;
     }
@@ -46,7 +48,7 @@ public class RoomTypeController {
     public ResponseResult<Map<String, Object>> findById(
             @Parameter(description = "房型ID", required = true) @PathVariable Integer id,
             HttpServletRequest request) {
-        java.util.Optional<RoomType> roomTypeOpt = roomTypeService.findById(id);
+        Optional<RoomType> roomTypeOpt = roomTypeService.findById(id);
         if (roomTypeOpt.isEmpty()) {
             return ResponseResult.error(404, "资源不存在");
         }
@@ -61,7 +63,7 @@ public class RoomTypeController {
     @Operation(summary = "新增房型", description = "创建一个新的房型记录")
     @PostMapping
     public ResponseResult<Map<String, Object>> create(
-            @Parameter(description = "房型信息", required = true) @RequestBody RoomType roomType,
+            @Parameter(description = "房型信息", required = true) @Valid @RequestBody RoomType roomType,
             HttpServletRequest request) {
         Employee employee = (Employee) request.getAttribute("employee");
         if (!dataIsolationService.isGroupAdmin(employee)) {
@@ -78,9 +80,9 @@ public class RoomTypeController {
     @PutMapping("/{id}")
     public ResponseResult<Map<String, Object>> update(
             @Parameter(description = "房型ID", required = true) @PathVariable Integer id,
-            @Parameter(description = "房型信息", required = true) @RequestBody RoomType roomType,
+            @Parameter(description = "房型信息", required = true) @Valid @RequestBody RoomType roomType,
             HttpServletRequest request) {
-        java.util.Optional<RoomType> existingOpt = roomTypeService.findById(id);
+        Optional<RoomType> existingOpt = roomTypeService.findById(id);
         if (existingOpt.isEmpty()) {
             return ResponseResult.error(404, "资源不存在");
         }
@@ -89,7 +91,7 @@ public class RoomTypeController {
         if (!dataIsolationService.canAccessHotel(employee, existing.getHotelId())) {
             return ResponseResult.error(403, "无权更新该房型");
         }
-        if (!dataIsolationService.isGroupAdmin(employee) && 
+        if (!dataIsolationService.isGroupAdmin(employee) &&
             !existing.getHotelId().equals(roomType.getHotelId())) {
             return ResponseResult.error(403, "无权将房型转移到其他酒店");
         }
@@ -103,7 +105,7 @@ public class RoomTypeController {
     public ResponseResult<Void> deleteById(
             @Parameter(description = "房型ID", required = true) @PathVariable Integer id,
             HttpServletRequest request) {
-        java.util.Optional<RoomType> roomTypeOpt = roomTypeService.findById(id);
+        Optional<RoomType> roomTypeOpt = roomTypeService.findById(id);
         if (roomTypeOpt.isEmpty()) {
             return ResponseResult.error(404, "资源不存在");
         }

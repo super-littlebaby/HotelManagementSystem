@@ -27,16 +27,12 @@
     
     <el-dialog v-model="showAddDialog" title="添加房间" width="500px">
       <el-form :model="form" label-width="80px">
-        <el-form-item label="所属酒店" required>
-          <el-select v-model="form.hotelId" @change="onHotelChange">
-            <el-option v-for="hotel in hotels" :key="hotel.id" :label="hotel.name" :value="hotel.id" />
-          </el-select>
-        </el-form-item>
+        <HotelSelect v-model="form.hotelId" label="所属酒店" :required="true" @change="onHotelChange" />
         <el-form-item label="房间号" required>
           <el-input v-model="form.roomNumber" />
         </el-form-item>
         <el-form-item label="楼层">
-          <el-input v-model.number="form.floor" type="number" />
+          <el-input-number v-model="form.floor" :min="1" :max="99" controls-position="right" />
         </el-form-item>
         <el-form-item label="房型">
           <el-select v-model="form.roomTypeId">
@@ -70,6 +66,7 @@ import { getRooms, createRoom, updateRoom, deleteRoom as deleteRoomApi } from '.
 import { getRoomTypes } from '../api/roomType'
 import { getHotels } from '../api/hotel'
 import { state as authState } from '../stores/auth'
+import HotelSelect from '../components/HotelSelect.vue'
 
 const rooms = ref([])
 const roomTypes = ref([])

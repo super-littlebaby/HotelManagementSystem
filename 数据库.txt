@@ -99,6 +99,7 @@ CREATE TABLE employees (
 CREATE TABLE reservations (
     id INT IDENTITY(1,1) PRIMARY KEY,
     guest_id INT NOT NULL,
+    hotel_id INT NULL,                        -- 所属酒店ID（用于数据隔离）
     booking_date DATETIME DEFAULT GETDATE(),
     check_in_date DATE NOT NULL,
     check_out_date DATE NOT NULL,
@@ -110,6 +111,7 @@ CREATE TABLE reservations (
     channel VARCHAR(20) DEFAULT 'online'
         CHECK (channel IN ('online','phone','walk_in','ota')),
     CONSTRAINT fk_reservations_guest FOREIGN KEY (guest_id) REFERENCES guests(id),
+    CONSTRAINT fk_reservations_hotel FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE SET NULL,
     CONSTRAINT fk_reservations_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
 );
 
@@ -131,7 +133,12 @@ CREATE TABLE reservation_rooms (
 CREATE TABLE check_ins (
     id INT IDENTITY(1,1) PRIMARY KEY,
     reservation_id INT NULL,                 -- 关联预订，walk-in 为空
-    guest_id INT NOT NULL,                   -- 主登记客人
+    guest_id INT NULL,                       -- 主登记客人（线下客户可为空）
+    guest_name VARCHAR(100) NULL,            -- 线下客户姓名
+    id_type VARCHAR(20) NULL                 -- 证件类型：id_card/passport/drivers_license/other
+        CHECK (id_type IN ('id_card','passport','drivers_license','other')),
+    id_number VARCHAR(200) NULL,             -- 证件号码（加密存储）
+    phone VARCHAR(20) NULL,                  -- 联系电话
     room_id INT NOT NULL,
     adults INT DEFAULT 1,
     children INT DEFAULT 0,
@@ -144,7 +151,7 @@ CREATE TABLE check_ins (
     total_charge DECIMAL(10,2) NULL,         -- 累计总费用（房费+消费+损坏）
     notes VARCHAR(MAX) NULL,
     CONSTRAINT fk_checkins_reservation FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL,
-    CONSTRAINT fk_checkins_guest FOREIGN KEY (guest_id) REFERENCES guests(id),
+    CONSTRAINT fk_checkins_guest FOREIGN KEY (guest_id) REFERENCES guests(id) ON DELETE SET NULL,
     CONSTRAINT fk_checkins_room FOREIGN KEY (room_id) REFERENCES rooms(id)
 );
 
@@ -152,11 +159,14 @@ CREATE TABLE check_ins (
 CREATE TABLE stay_guests (
     id INT IDENTITY(1,1) PRIMARY KEY,
     check_in_id INT NOT NULL,
-    guest_id INT NOT NULL,
+    guest_id INT NULL,                        -- 关联客人账号（线下客户可为空）
+    name VARCHAR(100) NULL,                   -- 线下客户姓名
+    id_type VARCHAR(20) NULL                  -- 证件类型：id_card/passport/drivers_license/other
+        CHECK (id_type IN ('id_card','passport','drivers_license','other')),
+    id_number VARCHAR(200) NULL,              -- 证件号码（加密存储）
     is_primary BIT DEFAULT 0,                 -- 是否主登记人
     CONSTRAINT fk_stayguests_checkin FOREIGN KEY (check_in_id) REFERENCES check_ins(id) ON DELETE CASCADE,
-    CONSTRAINT fk_stayguests_guest FOREIGN KEY (guest_id) REFERENCES guests(id),
-    CONSTRAINT uk_checkin_guest UNIQUE (check_in_id, guest_id)
+    CONSTRAINT fk_stayguests_guest FOREIGN KEY (guest_id) REFERENCES guests(id) ON DELETE SET NULL
 );
 
 -- 12. 可消费项目定义表（餐饮、洗衣等）

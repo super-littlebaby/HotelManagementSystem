@@ -93,7 +93,7 @@ const goToHotelDetail = (id) => {
             <p class="description">{{ hotel.description }}</p>
             <div class="price">
               <span class="currency">¥</span>
-              <span class="amount">0</span>
+              <span class="amount">{{ hotel.minPrice ? hotel.minPrice.toFixed(0) : '暂无' }}</span>
               <span class="unit">起/晚</span>
             </div>
           </div>

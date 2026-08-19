@@ -3,6 +3,7 @@ package com.project.hotelmanagementsystem.service;
 import com.project.hotelmanagementsystem.entity.RoomType;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -56,4 +57,20 @@ public interface RoomTypeService {
      * @return 房型列表
      */
     List<RoomType> findByHotelIdAndBedType(Integer hotelId, String bedType);
+
+    /**
+     * 将房型实体转换为DTO
+     *
+     * @param roomType 房型实体
+     * @return DTO Map
+     */
+    Map<String, Object> convertToDTO(RoomType roomType);
+
+    /**
+     * 将房型实体列表转换为DTO列表
+     *
+     * @param roomTypes 房型实体列表
+     * @return DTO Map列表
+     */
+    List<Map<String, Object>> convertToDTOList(List<RoomType> roomTypes);
 }

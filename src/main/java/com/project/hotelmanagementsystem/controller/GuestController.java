@@ -2,12 +2,14 @@ package com.project.hotelmanagementsystem.controller;
 
 import com.project.hotelmanagementsystem.common.ResponseResult;
 import com.project.hotelmanagementsystem.entity.Guest;
+import com.project.hotelmanagementsystem.service.AuthService;
 import com.project.hotelmanagementsystem.service.GuestService;
 import com.project.hotelmanagementsystem.util.EncryptionUtil;
 import com.project.hotelmanagementsystem.util.IdCardValidator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,9 +29,11 @@ import java.util.stream.Collectors;
 public class GuestController {
 
     private final GuestService guestService;
+    private final AuthService authService;
 
-    public GuestController(GuestService guestService) {
+    public GuestController(GuestService guestService, AuthService authService) {
         this.guestService = guestService;
+        this.authService = authService;
     }
 
     @Operation(summary = "查询所有客人", description = "返回系统中所有客人档案的列表")
@@ -149,57 +153,82 @@ public class GuestController {
                 .orElse(ResponseResult.error(404, "资源不存在"));
     }
 
-    @Operation(summary = "客人登录", description = "客人通过邮箱和密码登录")
+    @Operation(summary = "客人登录", description = "客人通过手机号或邮箱和密码登录")
     @PostMapping("/login")
     public ResponseResult<Map<String, Object>> login(
             @RequestBody Map<String, String> loginData) {
-        String email = loginData.get("email");
+        String account = loginData.get("account");
         String password = loginData.get("password");
         
-        if (email == null || password == null) {
-            return ResponseResult.error(400, "邮箱和密码不能为空");
+        if (account == null || password == null) {
+            return ResponseResult.error(400, "账号和密码不能为空");
         }
         
-        String emailError = validateEmail(email);
-        if (emailError != null) {
-            return ResponseResult.error(400, emailError);
+        Optional<Guest> guestOpt = Optional.empty();
+        
+        // 判断是手机号还是邮箱
+        if (account.contains("@")) {
+            // 邮箱登录
+            String emailError = validateEmail(account);
+            if (emailError != null) {
+                return ResponseResult.error(400, emailError);
+            }
+            guestOpt = guestService.findByEmail(account);
+        } else {
+            // 手机号登录
+            String phoneError = validatePhone(account);
+            if (phoneError != null) {
+                return ResponseResult.error(400, phoneError);
+            }
+            List<Guest> guests = guestService.findByPhone(account);
+            if (!guests.isEmpty()) {
+                guestOpt = Optional.of(guests.get(0));
+            }
         }
         
-        Optional<Guest> guestOpt = guestService.findByEmail(email);
         if (guestOpt.isPresent()) {
             Guest guest = guestOpt.get();
             if (new BCryptPasswordEncoder().matches(password, guest.getPassword())) {
                 String token = UUID.randomUUID().toString();
+                authService.saveGuestToken(token, guest);
                 Map<String, Object> result = new HashMap<>();
                 result.put("token", token);
                 result.put("guest", maskGuestSensitiveInfo(guest));
                 return ResponseResult.success("登录成功", result);
             }
         }
-        return ResponseResult.error(401, "邮箱或密码错误");
+        return ResponseResult.error(401, "账号或密码错误");
     }
 
     @Operation(summary = "客人注册", description = "创建新的客人账号")
     @PostMapping("/register")
     public ResponseResult<Map<String, Object>> register(@RequestBody Guest guest) {
-        if (guest.getEmail() == null || guest.getPassword() == null || 
+        if (guest.getPhone() == null || guest.getPassword() == null || 
             guest.getFirstName() == null || guest.getLastName() == null) {
             return ResponseResult.error(400, "必填信息不能为空");
         }
         
-        String emailError = validateEmail(guest.getEmail());
-        if (emailError != null) {
-            return ResponseResult.error(400, emailError);
+        // 手机号校验（必填）
+        String phoneError = validatePhone(guest.getPhone());
+        if (phoneError != null) {
+            return ResponseResult.error(400, phoneError);
         }
         
-        if (guestService.findByEmail(guest.getEmail()).isPresent()) {
-            return ResponseResult.error(400, "该邮箱已被注册");
+        // 检查手机号是否已被注册
+        List<Guest> guestsByPhone = guestService.findByPhone(guest.getPhone());
+        if (!guestsByPhone.isEmpty()) {
+            return ResponseResult.error(400, "该手机号已被注册");
         }
         
-        if (guest.getPhone() != null && !guest.getPhone().isEmpty()) {
-            String phoneError = validatePhone(guest.getPhone());
-            if (phoneError != null) {
-                return ResponseResult.error(400, phoneError);
+        // 邮箱校验（可选）
+        if (guest.getEmail() != null && !guest.getEmail().isEmpty()) {
+            String emailError = validateEmail(guest.getEmail());
+            if (emailError != null) {
+                return ResponseResult.error(400, emailError);
+            }
+            
+            if (guestService.findByEmail(guest.getEmail()).isPresent()) {
+                return ResponseResult.error(400, "该邮箱已被注册");
             }
         }
         
@@ -247,12 +276,12 @@ public class GuestController {
 
     @Operation(summary = "获取当前登录客人信息", description = "获取当前登录客人的详细信息")
     @GetMapping("/info")
-    public ResponseResult<Map<String, Object>> getGuestInfo(@RequestHeader(value = "Authorization", required = false) String token) {
-        if (token == null || !token.startsWith("Bearer ")) {
+    public ResponseResult<Map<String, Object>> getGuestInfo(HttpServletRequest request) {
+        Guest guest = (Guest) request.getAttribute("guest");
+        if (guest == null) {
             return ResponseResult.error(401, "未登录");
         }
-        
-        return ResponseResult.success("获取成功", null);
+        return ResponseResult.success("获取成功", maskGuestSensitiveInfo(guest));
     }
 
     @Operation(summary = "更新客人信息", description = "更新当前登录客人的个人信息")

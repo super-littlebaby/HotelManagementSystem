@@ -7,18 +7,18 @@ import { login as setLogin } from '../stores/auth'
 
 const router = useRouter()
 const form = ref({
-  email: '',
+  account: '',
   password: ''
 })
 
 const handleLogin = async () => {
-  if (!form.value.email || !form.value.password) {
+  if (!form.value.account || !form.value.password) {
     ElMessage.warning('请填写完整信息')
     return
   }
   
-  if (!validateEmail(form.value.email)) {
-    ElMessage.warning('请输入有效的邮箱地址')
+  if (!validateAccount(form.value.account)) {
+    ElMessage.warning('请输入有效的手机号或邮箱地址')
     return
   }
   
@@ -36,9 +36,13 @@ const handleLogin = async () => {
   }
 }
 
-const validateEmail = (email) => {
+const validateAccount = (account) => {
+  // 邮箱格式验证
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
+  // 手机号格式验证（支持国际格式）
+  const phoneRegex = /^[+]?[1-9]\d{1,14}$/
+  
+  return emailRegex.test(account) || phoneRegex.test(account)
 }
 </script>
 
@@ -53,12 +57,12 @@ const validateEmail = (email) => {
         
         <form class="login-form">
           <div class="form-group">
-            <label for="email">邮箱 <span class="required">*</span></label>
+            <label for="account">手机号/邮箱 <span class="required">*</span></label>
             <input 
-              id="email"
-              v-model="form.email" 
-              type="email" 
-              placeholder="请输入邮箱"
+              id="account"
+              v-model="form.account" 
+              type="text" 
+              placeholder="请输入手机号或邮箱"
             />
           </div>
           
