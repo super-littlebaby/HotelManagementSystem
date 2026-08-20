@@ -20,6 +20,10 @@ export const deleteCheckIn = (id) => {
   return request.delete(`/check-ins/${id}`)
 }
 
-export const checkOut = (id) => {
-  return request.put(`/check-ins/${id}/check-out`)
+export const preCheckOut = (id) => {
+  return request.get(`/check-ins/${id}/pre-check-out`)
+}
+
+export const checkOut = (id, data) => {
+  return request.put(`/check-ins/${id}/check-out`, data || {})
 }

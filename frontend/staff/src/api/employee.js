@@ -43,3 +43,7 @@ export const updateProfile = (data) => {
 export const changePassword = (data) => {
   return request.put('/employees/password', data)
 }
+
+export const toggleEmployeeStatus = (id, isActive) => {
+  return request.patch(`/employees/${id}/status`, null, { params: { isActive } })
+}

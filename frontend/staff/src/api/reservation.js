@@ -70,10 +70,15 @@ export const checkOutReservation = (id) => {
  * 分配房间
  * @param {Number} id - 预订ID
  * @param {Number} roomId - 房间ID
+ * @param {Number} roomTypeId - 房型ID（可选，换房型时使用）
  * @returns {Promise} 分配结果
  */
-export const assignRoom = (id, roomId) => {
-  return request.put(`/reservations/${id}/assign-room`, { roomId })
+export const assignRoom = (id, roomId, roomTypeId) => {
+  const data = { roomId }
+  if (roomTypeId) {
+    data.roomTypeId = roomTypeId
+  }
+  return request.put(`/reservations/${id}/assign-room`, data)
 }
 
 /**

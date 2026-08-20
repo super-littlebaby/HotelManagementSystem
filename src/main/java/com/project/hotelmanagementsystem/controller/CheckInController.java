@@ -1,21 +1,30 @@
 package com.project.hotelmanagementsystem.controller;
 
 import com.project.hotelmanagementsystem.common.ResponseResult;
+import com.project.hotelmanagementsystem.entity.Bill;
 import com.project.hotelmanagementsystem.entity.CheckIn;
 import com.project.hotelmanagementsystem.entity.Employee;
+import com.project.hotelmanagementsystem.entity.Payment;
 import com.project.hotelmanagementsystem.entity.Room;
 import com.project.hotelmanagementsystem.entity.RoomType;
+import com.project.hotelmanagementsystem.repository.BillRepository;
 import com.project.hotelmanagementsystem.repository.CheckInRepository;
+import com.project.hotelmanagementsystem.repository.PaymentRepository;
 import com.project.hotelmanagementsystem.repository.RoomRepository;
 import com.project.hotelmanagementsystem.repository.RoomTypeRepository;
 import com.project.hotelmanagementsystem.service.CheckInService;
 import com.project.hotelmanagementsystem.service.DataIsolationService;
+import com.project.hotelmanagementsystem.service.RoomStatusLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -36,6 +45,9 @@ public class CheckInController {
     private final RoomRepository roomRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final DataIsolationService dataIsolationService;
+    private final RoomStatusLogService roomStatusLogService;
+    private final BillRepository billRepository;
+    private final PaymentRepository paymentRepository;
 
     /**
      * 构造函数注入入住登记Service
@@ -45,13 +57,24 @@ public class CheckInController {
      * @param roomRepository        房间Repository
      * @param roomTypeRepository    房型Repository
      * @param dataIsolationService  数据隔离Service
+     * @param roomStatusLogService  房间状态变更日志Service
+     * @param billRepository        账单Repository
+     * @param paymentRepository     收款记录Repository
      */
-    public CheckInController(CheckInService checkInService, CheckInRepository checkInRepository, RoomRepository roomRepository, RoomTypeRepository roomTypeRepository, DataIsolationService dataIsolationService) {
+    public CheckInController(CheckInService checkInService, CheckInRepository checkInRepository,
+                             RoomRepository roomRepository, RoomTypeRepository roomTypeRepository,
+                             DataIsolationService dataIsolationService,
+                             RoomStatusLogService roomStatusLogService,
+                             BillRepository billRepository,
+                             PaymentRepository paymentRepository) {
         this.checkInService = checkInService;
         this.checkInRepository = checkInRepository;
         this.roomRepository = roomRepository;
         this.roomTypeRepository = roomTypeRepository;
         this.dataIsolationService = dataIsolationService;
+        this.roomStatusLogService = roomStatusLogService;
+        this.billRepository = billRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     /**
@@ -168,6 +191,62 @@ public class CheckInController {
         java.util.List<com.project.hotelmanagementsystem.entity.StayGuest> stayGuests = requestBody.toStayGuests(null);
 
         CheckIn saved = checkInService.saveWithStayGuests(checkIn, stayGuests);
+
+        // 计算押金并创建账单
+        if (room.getRoomTypeId() != null && saved.getCheckInTime() != null && saved.getExpectedCheckOutTime() != null) {
+            java.util.Optional<RoomType> roomTypeOpt = roomTypeRepository.findById(room.getRoomTypeId());
+            if (roomTypeOpt.isPresent() && roomTypeOpt.get().getBasePrice() != null) {
+                RoomType rt = roomTypeOpt.get();
+                BigDecimal basePrice = rt.getBasePrice();
+
+                // 计算入住天数（按自然日计算，至少1天）
+                long days = ChronoUnit.DAYS.between(
+                        saved.getCheckInTime().toLocalDate(),
+                        saved.getExpectedCheckOutTime().toLocalDate()
+                );
+                days = Math.max(days, 1);
+
+                // 押金 = 房间单价 * 入住天数
+                BigDecimal depositAmount = basePrice.multiply(BigDecimal.valueOf(days));
+
+                // 设置入住记录的实际执行房价
+                saved.setRatePerNight(basePrice);
+                checkInRepository.save(saved);
+
+                // 创建账单记录
+                Bill bill = new Bill();
+                bill.setCheckInId(saved.getId());
+                bill.setBillStatus("open");
+                bill.setTotalAmount(BigDecimal.ZERO);
+                bill.setPaidAmount(depositAmount);
+                bill.setDepositAmount(depositAmount);
+                bill.setCreatedAt(LocalDateTime.now());
+                Bill savedBill = billRepository.save(bill);
+
+                // 创建押金支付记录
+                Payment payment = new Payment();
+                payment.setBillId(savedBill.getId());
+                payment.setAmount(depositAmount);
+                payment.setPaymentMethod("cash");
+                payment.setPaymentType("deposit");
+                payment.setPaymentDate(LocalDateTime.now());
+                payment.setEmployeeId(employee != null ? employee.getId() : null);
+                paymentRepository.save(payment);
+            }
+        }
+
+        // 入住时将房间状态置为 occupied，并通过统一日志入口记录状态变更
+        String oldRoomStatus = room.getStatus();
+        if (!"occupied".equals(oldRoomStatus)) {
+            room.setStatus("occupied");
+            roomRepository.save(room);
+            Integer changedBy = employee != null ? employee.getId() : null;
+            String guestDesc = saved.getGuestName() != null ? "，客人：" + saved.getGuestName() : "";
+            roomStatusLogService.logStatusChange(
+                    room.getId(), oldRoomStatus, "occupied", changedBy,
+                    "入住：入住记录 #" + saved.getId() + guestDesc);
+        }
+
         return ResponseResult.success("创建成功", saved);
     }
 
@@ -338,15 +417,15 @@ public class CheckInController {
     }
 
     /**
-     * 办理退房
+     * 退房前预计算
      *
      * @param id      入住记录ID
      * @param request HTTP请求
-     * @return 更新后的入住记录信息
+     * @return 预计算结果
      */
-    @Operation(summary = "办理退房", description = "将入住记录状态更新为已退房，并将房间状态设为待打扫")
-    @PutMapping("/{id}/check-out")
-    public ResponseResult<CheckIn> checkOut(
+    @Operation(summary = "退房前预计算", description = "在办理退房前计算总费用、押金和差额")
+    @GetMapping("/{id}/pre-check-out")
+    public ResponseResult<java.util.Map<String, Object>> preCheckOut(
             @Parameter(description = "入住记录ID", required = true) @PathVariable Integer id,
             HttpServletRequest request) {
         java.util.Optional<CheckIn> optional = checkInService.findById(id);
@@ -363,7 +442,51 @@ public class CheckInController {
         }
 
         try {
-            CheckIn checkIn = checkInService.checkOut(id);
+            java.util.Map<String, Object> result = checkInService.preCheckOut(id);
+            return ResponseResult.success(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseResult.error(404, e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseResult.error(400, e.getMessage());
+        }
+    }
+
+    /**
+     * 办理退房
+     *
+     * @param id      入住记录ID
+     * @param requestBody 请求体，包含paymentMethod和refundMethod
+     * @param request HTTP请求
+     * @return 更新后的入住记录信息
+     */
+    @Operation(summary = "办理退房", description = "将入住记录状态更新为已退房，并将房间状态设为待打扫。押金不足时需补差价，押金多余时需退款")
+    @PutMapping("/{id}/check-out")
+    public ResponseResult<CheckIn> checkOut(
+            @Parameter(description = "入住记录ID", required = true) @PathVariable Integer id,
+            @RequestBody(required = false) java.util.Map<String, String> requestBody,
+            HttpServletRequest request) {
+        java.util.Optional<CheckIn> optional = checkInService.findById(id);
+        if (optional.isEmpty()) {
+            return ResponseResult.error(404, "资源不存在");
+        }
+
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (employee != null && !dataIsolationService.isGroupAdmin(employee)) {
+            java.util.Optional<Integer> hotelIdOpt = checkInRepository.findHotelIdByCheckInId(id);
+            if (hotelIdOpt.isPresent() && !dataIsolationService.canAccessHotel(employee, hotelIdOpt.get())) {
+                return ResponseResult.error(403, "无权操作其他酒店的入住记录");
+            }
+        }
+
+        try {
+            Integer changedBy = employee != null ? employee.getId() : null;
+            String paymentMethod = null;
+            String refundMethod = null;
+            if (requestBody != null) {
+                paymentMethod = requestBody.get("paymentMethod");
+                refundMethod = requestBody.get("refundMethod");
+            }
+            CheckIn checkIn = checkInService.checkOut(id, changedBy, paymentMethod, refundMethod);
             return ResponseResult.success("退房成功", checkIn);
         } catch (IllegalArgumentException e) {
             return ResponseResult.error(404, e.getMessage());

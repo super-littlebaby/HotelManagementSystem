@@ -34,6 +34,9 @@ body {
 .sidebar {
   background-color: #2d3748;
   color: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .logo {
@@ -42,6 +45,7 @@ body {
   font-weight: bold;
   text-align: center;
   border-bottom: 1px solid #4a5568;
+  flex-shrink: 0;
 }
 
 .role-tag {
@@ -51,10 +55,13 @@ body {
   color: #63b3ed;
   background-color: rgba(99, 179, 237, 0.1);
   border-bottom: 1px solid #4a5568;
+  flex-shrink: 0;
 }
 
 .menu {
-  height: calc(100vh - 110px);
+  flex: 1;
+  overflow-y: auto;
+  border-right: none;
 }
 
 .header {
@@ -79,6 +86,8 @@ body {
 
 .content {
   padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ============ Login Page Styles ============ */
@@ -178,6 +187,8 @@ body {
 /* ============ Common Page Styles ============ */
 .page {
   padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -193,13 +204,172 @@ body {
   color: #333;
 }
 
-/* ============ Reservation Page Styles ============ */
-.search-card {
-  margin-bottom: 20px;
+/* ============ Common Form/Pagination Styles ============ */
+.search-form {
+  margin-bottom: 16px;
 }
 
-.table-card {
-  margin-bottom: 20px;
+.hotel-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  line-height: 22px;
+  padding: 5px 12px;
+  font-size: 14px;
+}
+
+.hotel-tag-fixed {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 15px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #606266;
+  font-size: 14px;
+  line-height: 30px;
+  box-sizing: border-box;
+}
+
+.pagination-wrap {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ============ Consumable Items Page ============ */
+.consumable-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.consumable-page .page-header h2 {
+  margin: 0;
+}
+
+.consumable-search .el-form-item {
+  margin-right: 12px;
+}
+
+/* ============ CheckIns Page Styles ============ */
+.diff-section {
+  margin-top: 10px;
+}
+
+.total-charge {
+  text-align: right;
+}
+
+/* ============ ConsumableOrder Page Styles ============ */
+.consumable-order-page {
+  padding: 20px;
+}
+
+.page-title {
+  margin: 0 0 24px 0;
+}
+
+.search-card {
+  margin-bottom: 24px;
+}
+
+.info-card {
+  margin-bottom: 24px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.amount {
+  color: #f56c6c;
+  font-weight: bold;
+}
+
+.order-card {
+  margin-bottom: 24px;
+}
+
+.consumable-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.consumable-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.consumable-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.item-info {
+  flex: 1;
+}
+
+.item-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.item-price {
+  color: #f56c6c;
+  font-size: 14px;
+}
+
+.item-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cart-card {
+  margin-bottom: 24px;
+}
+
+.cart-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #ebeef5;
+}
+
+.cart-footer .total {
+  font-size: 16px;
+}
+
+/* ============ Reservation Page Styles ============ */
+.price-info {
+  margin-top: 10px;
+}
+
+.total-calc {
+  margin-top: 15px;
+}
+
+.price-change-hint {
+  margin-top: 10px;
 }
 
 .empty-state {
@@ -359,6 +529,11 @@ body {
 .profile-page {
   padding: 20px;
   max-width: 800px;
+  margin: 0 auto;
+  min-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .profile-header {

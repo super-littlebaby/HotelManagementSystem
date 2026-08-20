@@ -26,7 +26,6 @@ public class Employee {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
-    @NotBlank(message = "密码不能为空")
     @Size(max = 255, message = "密码长度不能超过255个字符")
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;

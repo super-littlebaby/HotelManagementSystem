@@ -91,10 +91,38 @@ public interface CheckInService {
     List<CheckIn> findByRoomIdAndStatus(Integer roomId, String status);
 
     /**
+     * 退房前预计算，返回押金、总费用和差额信息
+     *
+     * @param id 入住记录ID
+     * @return 预计算结果（押金、总费用、差额、入住天数）
+     */
+    java.util.Map<String, Object> preCheckOut(Integer id);
+
+    /**
      * 办理退房
      *
      * @param id 入住记录ID
      * @return 更新后的入住记录信息
      */
     CheckIn checkOut(Integer id);
+
+    /**
+     * 办理退房（同时记录操作人，用于写入状态变更日志）
+     *
+     * @param id         入住记录ID
+     * @param changedBy  操作人员工ID
+     * @return 更新后的入住记录信息
+     */
+    CheckIn checkOut(Integer id, Integer changedBy);
+
+    /**
+     * 办理退房（支持补价/退款方式）
+     *
+     * @param id             入住记录ID
+     * @param changedBy      操作人员工ID
+     * @param paymentMethod  补价付款方式（押金不足时使用）
+     * @param refundMethod   退款方式（押金多余时使用）
+     * @return 更新后的入住记录信息
+     */
+    CheckIn checkOut(Integer id, Integer changedBy, String paymentMethod, String refundMethod);
 }

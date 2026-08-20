@@ -256,7 +256,7 @@ const validateIdNumber = (idType, idNumber) => {
             />
           </div>
           
-          <button class="register-btn" @click.prevent="handleRegister">注册</button>
+          <button class="submit-form-btn" @click.prevent="handleRegister">注册</button>
           
           <div class="link-section">
             <span>已有账号？</span>

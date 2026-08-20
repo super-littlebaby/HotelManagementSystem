@@ -88,4 +88,10 @@ public interface BillItemRepository extends JpaRepository<BillItem, Integer> {
      */
     @Query("SELECT bi FROM BillItem bi WHERE bi.billId = :billId AND bi.itemType = :itemType AND bi.billId IN (SELECT b.id FROM Bill b WHERE b.checkInId IN (SELECT c.id FROM CheckIn c WHERE c.roomId IN (SELECT r.id FROM Room r WHERE r.hotelId = :hotelId)))")
     List<BillItem> findByBillIdAndItemTypeAndHotelId(@Param("billId") Integer billId, @Param("itemType") String itemType, @Param("hotelId") Integer hotelId);
+
+    /**
+     * 统计账单明细的总金额
+     */
+    @Query("SELECT COALESCE(SUM(bi.amount), 0) FROM BillItem bi WHERE bi.billId = :billId")
+    java.math.BigDecimal sumAmountByBillId(@Param("billId") Integer billId);
 }

@@ -21,6 +21,16 @@ export const deleteRoom = (id) => {
 }
 
 /**
+ * 更新房间状态（后端会写入状态变更日志）
+ * @param {Number} id - 房间ID
+ * @param {Object} data - { status, notes }
+ * @returns {Promise} 更新后的房间信息
+ */
+export const updateRoomStatus = (id, data) => {
+  return request.put(`/rooms/${id}/status`, data)
+}
+
+/**
  * 按房型查询房间列表
  * @param {Number} roomTypeId - 房型ID
  * @returns {Promise} 房间列表

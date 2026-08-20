@@ -134,11 +134,12 @@ public interface ReservationService {
     /**
      * 办理入住（按房间携带实际入住人信息）
      *
-     * @param id      预订ID
-     * @param request 按房间分组的入住人信息
+     * @param id         预订ID
+     * @param request    按房间分组的入住人信息
+     * @param employeeId 办理入住的员工ID
      * @return 预订详情响应
      */
-    ReservationResponse checkInReservation(Integer id, CheckInReservationRequest request);
+    ReservationResponse checkInReservation(Integer id, CheckInReservationRequest request, Integer employeeId);
 
     /**
      * 分配房间（在已确认状态下分配房间）
@@ -148,6 +149,16 @@ public interface ReservationService {
      * @return 预订详情响应
      */
     ReservationResponse assignRoom(Integer id, Integer roomId);
+
+    /**
+     * 分配房间并可更换房型
+     *
+     * @param id        预订ID
+     * @param roomId    房间ID
+     * @param roomTypeId 房型ID（可选，更换房型时使用）
+     * @return 预订详情响应
+     */
+    ReservationResponse assignRoom(Integer id, Integer roomId, Integer roomTypeId);
 
     /**
      * 根据客人ID查询预订详情列表

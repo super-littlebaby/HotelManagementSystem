@@ -11,8 +11,12 @@
       <el-table-column prop="roomNumber" label="房间号" />
       <el-table-column prop="adults" label="成人" width="60" />
       <el-table-column prop="children" label="儿童" width="60" />
-      <el-table-column prop="checkInTime" label="入住时间" />
-      <el-table-column prop="expectedCheckOutTime" label="预计退房" />
+      <el-table-column prop="checkInTime" label="入住时间">
+        <template #default="{ row }">{{ formatDateTime(row.checkInTime) }}</template>
+      </el-table-column>
+      <el-table-column prop="expectedCheckOutTime" label="预计退房">
+        <template #default="{ row }">{{ formatDateTime(row.expectedCheckOutTime) }}</template>
+      </el-table-column>
       <el-table-column prop="status" label="状态">
         <template #default="{ row }">
           <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
@@ -104,14 +108,92 @@
         <el-button type="primary" @click="saveCheckIn">确认入住</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showCheckOutDialog" title="办理退房 - 费用结算" width="550px">
+      <div v-if="checkOutResult">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="实际入住天数">
+            {{ checkOutResult.actualDays }} 天
+          </el-descriptions-item>
+          <el-descriptions-item label="房费">
+            ¥{{ Number(checkOutResult.roomCharge).toFixed(2) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="消费记录">
+            ¥{{ Number(checkOutResult.additionalCharges).toFixed(2) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="总费用" content-class="total-charge">
+            <span style="color: #f56c6c; font-weight: bold; font-size: 18px">
+              ¥{{ Number(checkOutResult.totalCharge).toFixed(2) }}
+            </span>
+          </el-descriptions-item>
+          <el-descriptions-item label="已收押金">
+            ¥{{ Number(checkOutResult.depositAmount).toFixed(2) }}
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-divider />
+
+        <div v-if="checkOutResult.needPay" class="diff-section">
+          <el-alert type="warning" :closable="false" show-icon>
+            <template #title>
+              <span>押金不足，需补差价：<b>¥{{ Number(checkOutResult.payAmount).toFixed(2) }}</b></span>
+            </template>
+          </el-alert>
+          <el-form :model="checkOutForm" label-width="100px" style="margin-top: 15px">
+            <el-form-item label="补价方式">
+              <el-select v-model="checkOutForm.method" style="width: 100%">
+                <el-option label="现金" value="cash" />
+                <el-option label="信用卡" value="credit_card" />
+                <el-option label="借记卡" value="debit_card" />
+                <el-option label="微信支付" value="wechat" />
+                <el-option label="支付宝" value="alipay" />
+                <el-option label="银行转账" value="bank_transfer" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <div v-else-if="checkOutResult.needRefund" class="diff-section">
+          <el-alert type="success" :closable="false" show-icon>
+            <template #title>
+              <span>押金多余，需退款：<b>¥{{ Number(checkOutResult.refundAmount).toFixed(2) }}</b></span>
+            </template>
+          </el-alert>
+          <el-form :model="checkOutForm" label-width="100px" style="margin-top: 15px">
+            <el-form-item label="退款方式">
+              <el-select v-model="checkOutForm.method" style="width: 100%">
+                <el-option label="现金" value="cash" />
+                <el-option label="信用卡原路退回" value="credit_card" />
+                <el-option label="借记卡原路退回" value="debit_card" />
+                <el-option label="微信退款" value="wechat" />
+                <el-option label="支付宝退款" value="alipay" />
+                <el-option label="银行转账" value="bank_transfer" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <div v-else class="diff-section">
+          <el-alert type="info" :closable="false" show-icon>
+            <template #title>押金刚好等于总费用，无需补价或退款</template>
+          </el-alert>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="showCheckOutDialog = false">取消</el-button>
+        <el-button type="primary" @click="confirmCheckOut">确认退房</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getCheckIns, createCheckIn, checkOut as checkOutApi } from '../api/checkin'
+import { getCheckIns, createCheckIn, preCheckOut as preCheckOutApi, checkOut as checkOutApi } from '../api/checkin'
 import { getRooms, getRoomsByType } from '../api/room'
+import { formatDateTime } from '../utils/date'
 import { getRoomTypes } from '../api/roomType'
 import { state as authState } from '../stores/auth'
 
@@ -119,6 +201,13 @@ const checkIns = ref([])
 const availableRooms = ref([])
 const roomTypes = ref([])
 const showAddDialog = ref(false)
+const showCheckOutDialog = ref(false)
+const currentCheckOutId = ref(null)
+const checkOutResult = ref(null)
+
+const checkOutForm = reactive({
+  method: 'cash'
+})
 
 const form = reactive({
   guestName: '',
@@ -163,11 +252,17 @@ const getStatusLabel = (status) => {
 const loadCheckIns = async () => {
   try {
     const response = await getCheckIns()
-    checkIns.value = (response.data || []).map(c => ({
-      ...c,
-      guestName: c.guestName || '未登记',
-      roomNumber: c.room?.roomNumber || '未分配'
-    }))
+    checkIns.value = (response.data || [])
+      .map(c => ({
+        ...c,
+        guestName: c.guestName || '未登记',
+        roomNumber: c.room?.roomNumber || '未分配'
+      }))
+      .sort((a, b) => {
+        const timeA = a.checkInTime ? new Date(a.checkInTime).getTime() : 0
+        const timeB = b.checkInTime ? new Date(b.checkInTime).getTime() : 0
+        return timeB - timeA
+      })
   } catch (error) {
     ElMessage.error('加载入住列表失败')
   }
@@ -313,17 +408,42 @@ const saveCheckIn = async () => {
 
 const handleCheckOut = async (row) => {
   try {
-    await ElMessageBox.confirm('确定要办理退房吗？', '提示', {
-      type: 'warning'
-    })
-    await checkOutApi(row.id)
-    ElMessage.success('退房成功')
-    loadCheckIns()
-    loadRoomTypes()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error?.response?.data?.message || '操作失败')
+    const res = await preCheckOutApi(row.id)
+    if (res.code === 200) {
+      currentCheckOutId.value = row.id
+      checkOutResult.value = res.data
+      checkOutForm.method = 'cash'
+      showCheckOutDialog.value = true
+    } else {
+      ElMessage.error(res.message || '获取费用信息失败')
     }
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || '获取费用信息失败')
+  }
+}
+
+const confirmCheckOut = async () => {
+  if (!checkOutResult.value) return
+
+  const hasDiff = checkOutResult.value.needRefund || checkOutResult.value.needPay
+  const data = {
+    paymentMethod: checkOutResult.value.needPay ? checkOutForm.method : null,
+    refundMethod: checkOutResult.value.needRefund ? checkOutForm.method : null
+  }
+
+  try {
+    const res = await checkOutApi(currentCheckOutId.value, data)
+    if (res.code === 200) {
+      ElMessage.success('退房成功')
+      showCheckOutDialog.value = false
+      checkOutResult.value = null
+      loadCheckIns()
+      loadRoomTypes()
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || '操作失败')
   }
 }
 

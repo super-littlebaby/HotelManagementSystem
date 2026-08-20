@@ -1,17 +1,15 @@
 package com.project.hotelmanagementsystem.service.impl;
 
 import com.project.hotelmanagementsystem.entity.Room;
-import com.project.hotelmanagementsystem.entity.RoomStatusLog;
 import com.project.hotelmanagementsystem.entity.RoomType;
 import com.project.hotelmanagementsystem.repository.RoomRepository;
-import com.project.hotelmanagementsystem.repository.RoomStatusLogRepository;
 import com.project.hotelmanagementsystem.repository.RoomTypeRepository;
 import com.project.hotelmanagementsystem.service.RoomService;
+import com.project.hotelmanagementsystem.service.RoomStatusLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,14 +21,16 @@ import java.util.stream.Collectors;
 public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
-    private final RoomStatusLogRepository roomStatusLogRepository;
     private final RoomTypeRepository roomTypeRepository;
+    private final RoomStatusLogService roomStatusLogService;
 
     @Autowired
-    public RoomServiceImpl(RoomRepository roomRepository, RoomStatusLogRepository roomStatusLogRepository, RoomTypeRepository roomTypeRepository) {
+    public RoomServiceImpl(RoomRepository roomRepository,
+                           RoomTypeRepository roomTypeRepository,
+                           RoomStatusLogService roomStatusLogService) {
         this.roomRepository = roomRepository;
-        this.roomStatusLogRepository = roomStatusLogRepository;
         this.roomTypeRepository = roomTypeRepository;
+        this.roomStatusLogService = roomStatusLogService;
     }
 
     @Override
@@ -116,16 +116,10 @@ public class RoomServiceImpl implements RoomService {
                     String oldStatus = room.getStatus();
                     room.setStatus(newStatus);
                     Room saved = roomRepository.save(room);
-                    
-                    RoomStatusLog log = new RoomStatusLog();
-                    log.setRoomId(id);
-                    log.setOldStatus(oldStatus);
-                    log.setNewStatus(newStatus);
-                    log.setChangedBy(changedBy);
-                    log.setChangedAt(LocalDateTime.now());
-                    log.setNotes(notes);
-                    roomStatusLogRepository.save(log);
-                    
+
+                    // 通过统一日志入口写入，保证所有状态变更都走同一通道
+                    roomStatusLogService.logStatusChange(id, oldStatus, newStatus, changedBy, notes);
+
                     return roomRepository.findByIdWithRelations(id).orElse(saved);
                 })
                 .orElseThrow(() -> new RuntimeException("房间不存在"));

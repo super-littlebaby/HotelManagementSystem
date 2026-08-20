@@ -5,98 +5,94 @@
     </div>
 
     <!-- 搜索和筛选 -->
-    <el-card class="search-card" shadow="never">
-      <el-form :inline="true" :model="searchForm">
-        <el-form-item label="搜索类型">
-          <el-select v-model="searchForm.type" style="width: 120px">
-            <el-option label="全部" value="all" />
-            <el-option label="手机号" value="phone" />
-            <el-option label="邮箱" value="email" />
-            <el-option label="客人姓名" value="name" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="关键词" v-if="searchForm.type !== 'all'">
-          <el-input
-            v-model="searchForm.keyword"
-            :placeholder="getSearchPlaceholder()"
-            style="width: 200px"
-            clearable
-            @keyup.enter="handleSearch"
-          />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="全部状态" style="width: 140px" clearable>
-            <el-option label="待确认" value="pending" />
-            <el-option label="已确认" value="confirmed" />
-            <el-option label="已入住" value="checked_in" />
-            <el-option label="已退房" value="checked_out" />
-            <el-option label="已取消" value="cancelled" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="resetSearch">重置</el-button>
-          <el-button @click="loadReservations">刷新</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+    <el-form :inline="true" :model="searchForm" class="search-form">
+      <el-form-item label="搜索类型">
+        <el-select v-model="searchForm.type" style="width: 120px">
+          <el-option label="全部" value="all" />
+          <el-option label="手机号" value="phone" />
+          <el-option label="邮箱" value="email" />
+          <el-option label="客人姓名" value="name" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="关键词" v-if="searchForm.type !== 'all'">
+        <el-input
+          v-model="searchForm.keyword"
+          :placeholder="getSearchPlaceholder()"
+          style="width: 200px"
+          clearable
+          @keyup.enter="handleSearch"
+        />
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="searchForm.status" placeholder="全部状态" style="width: 140px" clearable>
+          <el-option label="待确认" value="pending" />
+          <el-option label="已确认" value="confirmed" />
+          <el-option label="已入住" value="checked_in" />
+          <el-option label="已退房" value="checked_out" />
+          <el-option label="已取消" value="cancelled" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+        <el-button @click="loadReservations">刷新</el-button>
+      </el-form-item>
+    </el-form>
 
     <!-- 预订列表 -->
-    <el-card class="table-card" shadow="never">
-      <el-table :data="reservations" border v-loading="loading">
-        <el-table-column prop="id" label="预订ID" width="80" />
-        <el-table-column prop="hotelName" label="酒店" width="150" show-overflow-tooltip />
-        <el-table-column prop="guestName" label="客人" width="120" />
-        <el-table-column label="房型" width="200">
-          <template #default="{ row }">
-            <span v-if="row.rooms && row.rooms.length > 0">
-              <span v-for="(item, idx) in getRoomTypeSummary(row.rooms)" :key="idx" style="margin-right: 4px;">
-                {{ item.count }}间{{ item.name }}{{ idx < getRoomTypeSummary(row.rooms).length - 1 ? '、' : '' }}
-              </span>
+    <el-table :data="reservations" border stripe v-loading="loading">
+      <el-table-column prop="id" label="预订ID" width="80" />
+      <el-table-column prop="hotelName" label="酒店" show-overflow-tooltip />
+      <el-table-column prop="guestName" label="客人" />
+      <el-table-column label="房型">
+        <template #default="{ row }">
+          <span v-if="row.rooms && row.rooms.length > 0">
+            <span v-for="(item, idx) in getRoomTypeSummary(row.rooms)" :key="idx" style="margin-right: 4px;">
+              {{ item.count }}间{{ item.name }}{{ idx < getRoomTypeSummary(row.rooms).length - 1 ? '、' : '' }}
             </span>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="checkInDate" label="入住日期" width="120" />
-        <el-table-column prop="checkOutDate" label="退房日期" width="120" />
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="金额" width="110">
-          <template #default="{ row }">¥{{ Number(row.totalAmount).toFixed(2) }}</template>
-        </el-table-column>
-        <el-table-column label="渠道" width="100">
-          <template #default="{ row }">{{ getChannelLabel(row.channel) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="viewDetail(row)">详情</el-button>
-            <el-button
-              size="small"
-              type="primary"
-              @click="handleConfirm(row)"
-              v-if="row.status === 'pending'"
-            >
-              确认
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              @click="handleCancel(row)"
-              v-if="row.status === 'pending' || row.status === 'confirmed'"
-            >
-              取消
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div v-if="reservations.length === 0 && !loading" class="empty-state">
-        暂无预订记录
-      </div>
-    </el-card>
+          </span>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="入住日期">
+        <template #default="{ row }">{{ formatDate(row.checkInDate) }}</template>
+      </el-table-column>
+      <el-table-column label="退房日期">
+        <template #default="{ row }">{{ formatDate(row.checkOutDate) }}</template>
+      </el-table-column>
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="金额" align="right">
+        <template #default="{ row }">¥{{ Number(row.totalAmount).toFixed(2) }}</template>
+      </el-table-column>
+      <el-table-column label="渠道">
+        <template #default="{ row }">{{ getChannelLabel(row.channel) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="200" fixed="right">
+        <template #default="{ row }">
+          <el-button size="small" @click="viewDetail(row)">详情</el-button>
+          <el-button
+            size="small"
+            type="primary"
+            @click="handleConfirm(row)"
+            v-if="row.status === 'pending'"
+          >
+            确认
+          </el-button>
+          <el-button
+            size="small"
+            type="danger"
+            @click="handleCancel(row)"
+            v-if="row.status === 'pending' || row.status === 'confirmed'"
+          >
+            取消
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <!-- 预订详情对话框 -->
     <el-dialog v-model="detailDialogVisible" title="预订详情" width="700px">
@@ -163,13 +159,6 @@
         </el-button>
         <el-button
           type="danger"
-          @click="handleCheckOut(currentReservation)"
-          v-if="currentReservation && currentReservation.status === 'checked_in'"
-        >
-          办理退房
-        </el-button>
-        <el-button
-          type="danger"
           @click="handleCancel(currentReservation)"
           v-if="currentReservation && (currentReservation.status === 'pending' || currentReservation.status === 'confirmed')"
         >
@@ -179,14 +168,14 @@
     </el-dialog>
 
     <!-- 分配房间对话框 -->
-    <el-dialog v-model="assignRoomDialogVisible" title="分配房间" width="550px">
+    <el-dialog v-model="assignRoomDialogVisible" title="分配房间" width="600px">
       <el-form label-width="100px">
         <el-form-item label="选择房型">
           <el-select v-model="selectedRoomTypeId" placeholder="请选择房型" style="width: 100%" @change="handleRoomTypeChange">
             <el-option
-              v-for="rt in roomTypes"
+              v-for="rt in availableRoomTypes"
               :key="rt.id"
-              :label="rt.name"
+              :label="rt.name + ' (¥' + Number(rt.basePrice).toFixed(2) + '/晚)'"
               :value="rt.id"
             />
           </el-select>
@@ -196,12 +185,41 @@
             <el-option
               v-for="room in availableRooms"
               :key="room.id"
-              :label="`${room.roomNumber} - ${room.roomTypeName || ''}`"
+              :label="`${room.roomNumber}`"
               :value="room.id"
             />
           </el-select>
         </el-form-item>
       </el-form>
+
+      <!-- 房型信息和费用计算 -->
+      <el-divider v-if="selectedRoomTypeInfo" />
+      <div v-if="selectedRoomTypeInfo" class="price-info">
+        <h4 style="margin: 0 0 10px; color: #409eff">房型信息</h4>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="房型名称">{{ selectedRoomTypeInfo.name }}</el-descriptions-item>
+          <el-descriptions-item label="基础房价">¥{{ Number(selectedRoomTypeInfo.basePrice).toFixed(2) }}/晚</el-descriptions-item>
+          <el-descriptions-item label="可住成人">{{ selectedRoomTypeInfo.maxAdults }} 人</el-descriptions-item>
+          <el-descriptions-item label="可住儿童">{{ selectedRoomTypeInfo.maxChildren }} 人</el-descriptions-item>
+        </el-descriptions>
+        <div class="total-calc">
+          <el-descriptions :column="3" border size="small">
+            <el-descriptions-item label="入住天数">{{ stayNights }} 天</el-descriptions-item>
+            <el-descriptions-item label="房费小计">¥{{ Number(selectedRoomTypeInfo.basePrice * stayNights).toFixed(2) }}</el-descriptions-item>
+            <el-descriptions-item label="应付总金额" content-class="total-label">
+              <span style="color: #f56c6c; font-weight: bold; font-size: 16px">¥{{ Number(selectedRoomTypeInfo.basePrice * stayNights).toFixed(2) }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+          <div class="price-change-hint" v-if="originalRoomType && originalRoomType.id !== selectedRoomTypeId">
+            <el-alert type="warning" :closable="false" show-icon>
+              <template #title>
+                已更换房型！原房型：{{ originalRoomType.name }} (¥{{ Number(originalRoomType.basePrice).toFixed(2) }}/晚) → 新房型：{{ selectedRoomTypeInfo.name }} (¥{{ Number(selectedRoomTypeInfo.basePrice).toFixed(2) }}/晚)
+              </template>
+            </el-alert>
+          </div>
+        </div>
+      </div>
+
       <template #footer>
         <el-button @click="assignRoomDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="confirmAssignRoom">确认分配</el-button>
@@ -303,8 +321,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDate } from '../utils/date'
 import {
   getReservations,
   getReservationById,
@@ -332,6 +351,31 @@ const selectedRoomTypeId = ref(null)
 const availableRooms = ref([])
 const roomTypes = ref([])
 const roomCheckInForms = ref([])
+const originalRoomType = ref(null)
+
+const availableRoomTypes = computed(() => {
+  const hotelId = authState.staff?.hotelId
+  if (hotelId) {
+    return roomTypes.value.filter(rt => rt.hotelId === hotelId || rt.hotelId == null)
+  }
+  return roomTypes.value
+})
+
+const selectedRoomTypeInfo = computed(() => {
+  if (!selectedRoomTypeId.value) return null
+  return roomTypes.value.find(rt => rt.id === selectedRoomTypeId.value)
+})
+
+const stayNights = computed(() => {
+  if (!currentReservation.value) return 1
+  const checkIn = currentReservation.value.checkInDate
+  const checkOut = currentReservation.value.checkOutDate
+  if (!checkIn || !checkOut) return 1
+  const d1 = new Date(checkIn)
+  const d2 = new Date(checkOut)
+  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24))
+  return Math.max(diff, 1)
+})
 
 const searchForm = reactive({
   type: 'all',
@@ -551,6 +595,9 @@ const handleAssignRoom = async (row) => {
       await handleRoomTypeChange(roomTypeId)
     }
 
+    // 保存原始房型信息用于对比
+    originalRoomType.value = roomTypes.value.find(rt => rt.id === roomTypeId)
+
     currentReservation.value = row
     selectedRoomId.value = null
     assignRoomDialogVisible.value = true
@@ -563,20 +610,26 @@ const handleAssignRoom = async (row) => {
 const confirmAssignRoom = async () => {
   if (!currentReservation.value) return
   
-  assignRoomDialogVisible.value = false
-  
   if (!selectedRoomId.value) {
     ElMessage.warning('请选择房间')
     return
   }
 
+  const roomTypeChanged = originalRoomType.value && originalRoomType.value.id !== selectedRoomTypeId.value
+
+  assignRoomDialogVisible.value = false
+
   if (currentReservation.value.status === 'pending') {
     doConfirm(currentReservation.value.id, selectedRoomId.value)
   } else if (currentReservation.value.status === 'confirmed') {
     try {
-      const res = await assignRoom(currentReservation.value.id, selectedRoomId.value)
+      const res = await assignRoom(currentReservation.value.id, selectedRoomId.value, selectedRoomTypeId.value)
       if (res.code === 200) {
-        ElMessage.success('分配房间成功')
+        let msg = '分配房间成功'
+        if (roomTypeChanged) {
+          msg += `（已更换房型为 ${selectedRoomTypeInfo.value?.name}）`
+        }
+        ElMessage.success(msg)
         loadReservations()
         if (detailDialogVisible.value) {
           currentReservation.value = res.data

@@ -28,6 +28,11 @@ const routes = [
     component: () => import('../views/Profile.vue')
   },
   {
+    path: '/history-stays',
+    name: 'HistoryStays',
+    component: () => import('../views/HistoryStays.vue')
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('../views/Login.vue')
@@ -45,7 +50,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  if (to.name === 'MyReservations' && !state.isLoggedIn) {
+  if ((to.name === 'MyReservations' || to.name === 'HistoryStays') && !state.isLoggedIn) {
     next({ name: 'Login' })
   } else if (to.name === 'Profile' && !state.isLoggedIn) {
     next({ name: 'Login' })

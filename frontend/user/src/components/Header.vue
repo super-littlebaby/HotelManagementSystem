@@ -1,9 +1,24 @@
 <script setup>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { state, logout } from '../stores/auth'
 
 const router = useRouter()
+
+const fullName = computed(() => {
+  const firstName = state.guest?.firstName || ''
+  const lastName = state.guest?.lastName || ''
+  const combined = firstName + lastName
+  if (combined.length >= 2) {
+    return combined
+  }
+  const email = state.guest?.email || ''
+  if (email) {
+    return email.split('@')[0]
+  }
+  return combined || '用户'
+})
 
 const goToReservation = () => {
   if (!state.isLoggedIn) {
@@ -31,11 +46,12 @@ const handleLogout = () => {
           <router-link to="/" class="nav-link">首页</router-link>
           <span class="nav-link cursor-pointer" @click="goToReservation">在线预订</span>
           <router-link to="/my-reservations" class="nav-link" v-if="state.isLoggedIn">我的预订</router-link>
+          <router-link to="/history-stays" class="nav-link" v-if="state.isLoggedIn">历史住房</router-link>
           <router-link to="/profile" class="nav-link" v-if="state.isLoggedIn">个人中心</router-link>
         </nav>
         <div class="auth">
           <template v-if="state.isLoggedIn">
-            <span class="welcome">欢迎, {{ state.guest?.firstName }}</span>
+            <span class="welcome">欢迎, {{ fullName }}</span>
             <button class="logout-btn" @click="handleLogout">退出登录</button>
           </template>
           <template v-else>

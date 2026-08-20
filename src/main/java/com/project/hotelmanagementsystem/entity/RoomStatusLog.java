@@ -33,6 +33,30 @@ public class RoomStatusLog {
     @Column(name = "notes", columnDefinition = "VARCHAR(MAX)")
     private String notes;
 
+    /**
+     * 关联房间（只读，用于联表查询时一次性带出房间信息）
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id", insertable = false, updatable = false)
+    private Room room;
+
+    /**
+     * 关联操作员工（只读，用于联表查询时一次性带出员工信息）
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "changed_by", insertable = false, updatable = false)
+    private Employee employee;
+
+    /**
+     * 新增前自动填充变更时间
+     */
+    @PrePersist
+    protected void onCreate() {
+        if (this.changedAt == null) {
+            this.changedAt = LocalDateTime.now();
+        }
+    }
+
     public Integer getId() {
         return id;
     }
@@ -87,5 +111,21 @@ public class RoomStatusLog {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public Room getRoom() {
+        return room;
+    }
+
+    public void setRoom(Room room) {
+        this.room = room;
+    }
+
+    public Employee getEmployee() {
+        return employee;
+    }
+
+    public void setEmployee(Employee employee) {
+        this.employee = employee;
     }
 }

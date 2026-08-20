@@ -30,8 +30,8 @@
             <el-icon><Key /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ stats.checkins }}</div>
-            <div class="stat-label">在住人数</div>
+            <div class="stat-value">{{ stats.occupiedRooms }}</div>
+            <div class="stat-label">在住房间</div>
           </div>
         </div>
       </el-col>
@@ -53,8 +53,12 @@
       <el-table :data="recentReservations" border>
         <el-table-column prop="id" label="预订ID" />
         <el-table-column prop="guestName" label="客人" />
-        <el-table-column prop="checkInDate" label="入住日期" />
-        <el-table-column prop="checkOutDate" label="退房日期" />
+        <el-table-column label="入住日期">
+          <template #default="{ row }">{{ formatDate(row.checkInDate) }}</template>
+        </el-table-column>
+        <el-table-column label="退房日期">
+          <template #default="{ row }">{{ formatDate(row.checkOutDate) }}</template>
+        </el-table-column>
         <el-table-column prop="status" label="状态">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
@@ -69,8 +73,12 @@
         <el-table-column prop="id" label="登记ID" />
         <el-table-column prop="guestName" label="客人" />
         <el-table-column prop="roomNumber" label="房间号" />
-        <el-table-column prop="checkInTime" label="入住时间" />
-        <el-table-column prop="expectedCheckOut" label="预计退房" />
+        <el-table-column label="入住时间">
+          <template #default="{ row }">{{ formatDateTime(row.checkInTime) }}</template>
+        </el-table-column>
+        <el-table-column label="预计退房">
+          <template #default="{ row }">{{ formatDateTime(row.expectedCheckOut) }}</template>
+        </el-table-column>
       </el-table>
     </div>
   </div>
@@ -120,6 +128,28 @@ const getStatusLabel = (status) => {
   return labels[status] || status
 }
 
+const pad = (n) => String(n).padStart(2, '0')
+
+const formatDate = (val) => {
+  if (!val) return '-'
+  if (typeof val === 'string') {
+    return val.replace('T', ' ').substring(0, 10)
+  }
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return val
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+const formatDateTime = (val) => {
+  if (!val) return '-'
+  if (typeof val === 'string') {
+    return val.replace('T', ' ').replace(/\.\d+$/, '')
+  }
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return val
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
 const loadData = async () => {
   try {
     const hotelId = currentHotelId.value
@@ -138,15 +168,18 @@ const loadData = async () => {
       }
     }
 
+    let roomsData = []
     if (hotelId) {
       const roomsRes = await getRoomsByHotel(hotelId)
       if (roomsRes.code === 200) {
-        stats.rooms = (roomsRes.data || []).length
+        roomsData = roomsRes.data || []
+        stats.rooms = roomsData.length
       }
     } else {
       const roomsRes = await getRooms()
       if (roomsRes.code === 200) {
-        stats.rooms = (roomsRes.data || []).length
+        roomsData = roomsRes.data || []
+        stats.rooms = roomsData.length
       }
     }
 
@@ -178,7 +211,8 @@ const loadData = async () => {
           expectedCheckOut: c.expectedCheckOutTime
         }))
 
-      stats.checkins = checkins.filter(c => c.status === 'in_house').length
+      const occupiedRooms = roomsData.filter(r => r.status === 'occupied').length
+      stats.occupiedRooms = occupiedRooms
 
       const totalRevenue = checkins
         .filter(c => c.status === 'checked_out' && c.totalCharge != null)

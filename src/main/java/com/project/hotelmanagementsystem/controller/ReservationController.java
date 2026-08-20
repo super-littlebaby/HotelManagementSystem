@@ -221,7 +221,7 @@ public class ReservationController {
     @PutMapping("/{id}/assign-room")
     public ResponseResult<ReservationResponse> assignRoom(
             @Parameter(description = "预订ID", required = true) @PathVariable Integer id,
-            @RequestBody(required = false) Map<String, Integer> body,
+            @RequestBody(required = false) Map<String, Object> body,
             HttpServletRequest request) {
 
         Employee employee = (Employee) request.getAttribute("employee");
@@ -229,10 +229,11 @@ public class ReservationController {
             return ResponseResult.error(401, "未授权");
         }
 
-        Integer roomId = (body != null && body.containsKey("roomId")) ? body.get("roomId") : null;
+        Integer roomId = (body != null && body.containsKey("roomId")) ? ((Number) body.get("roomId")).intValue() : null;
+        Integer roomTypeId = (body != null && body.containsKey("roomTypeId")) ? ((Number) body.get("roomTypeId")).intValue() : null;
 
         try {
-            ReservationResponse response = reservationService.assignRoom(id, roomId);
+            ReservationResponse response = reservationService.assignRoom(id, roomId, roomTypeId);
             return ResponseResult.success("分配房间成功", response);
         } catch (IllegalArgumentException e) {
             return ResponseResult.error(400, e.getMessage());
@@ -262,7 +263,7 @@ public class ReservationController {
         }
 
         try {
-            ReservationResponse response = reservationService.checkInReservation(id, requestBody);
+            ReservationResponse response = reservationService.checkInReservation(id, requestBody, employee.getId());
             return ResponseResult.success("入住成功", response);
         } catch (IllegalArgumentException e) {
             return ResponseResult.error(404, e.getMessage());

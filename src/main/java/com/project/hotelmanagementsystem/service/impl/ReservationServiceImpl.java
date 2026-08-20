@@ -38,6 +38,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final CheckInRepository checkInRepository;
     private final StayGuestRepository stayGuestRepository;
     private final BillRepository billRepository;
+    private final PaymentRepository paymentRepository;
 
     @Autowired
     public ReservationServiceImpl(ReservationRepository reservationRepository,
@@ -48,7 +49,8 @@ public class ReservationServiceImpl implements ReservationService {
                                   HotelRepository hotelRepository,
                                   CheckInRepository checkInRepository,
                                   StayGuestRepository stayGuestRepository,
-                                  BillRepository billRepository) {
+                                  BillRepository billRepository,
+                                  PaymentRepository paymentRepository) {
         this.reservationRepository = reservationRepository;
         this.reservationRoomRepository = reservationRoomRepository;
         this.roomTypeRepository = roomTypeRepository;
@@ -58,6 +60,7 @@ public class ReservationServiceImpl implements ReservationService {
         this.checkInRepository = checkInRepository;
         this.stayGuestRepository = stayGuestRepository;
         this.billRepository = billRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     @Override
@@ -291,7 +294,7 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     @Override
-    public ReservationResponse checkInReservation(Integer id, CheckInReservationRequest request) {
+    public ReservationResponse checkInReservation(Integer id, CheckInReservationRequest request, Integer employeeId) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("预订不存在: " + id));
 
@@ -405,15 +408,33 @@ public class ReservationServiceImpl implements ReservationService {
 
             stayGuestRepository.saveAll(stayGuestList);
 
-            // 3. 为入住记录创建账单
+            // 3. 计算押金并创建账单
+            BigDecimal ratePerNight = rr.getRatePerNight() != null ? rr.getRatePerNight() : BigDecimal.ZERO;
+            long days = 1;
+            if (reservation.getCheckInDate() != null && reservation.getCheckOutDate() != null) {
+                days = ChronoUnit.DAYS.between(reservation.getCheckInDate(), reservation.getCheckOutDate());
+                days = Math.max(days, 1);
+            }
+            BigDecimal depositAmount = ratePerNight.multiply(BigDecimal.valueOf(days));
+
             Bill bill = new Bill();
             bill.setCheckInId(savedCheckIn.getId());
             bill.setBillStatus("open");
             bill.setTotalAmount(BigDecimal.ZERO);
-            bill.setPaidAmount(BigDecimal.ZERO);
-            bill.setDepositAmount(BigDecimal.ZERO);
+            bill.setPaidAmount(depositAmount);
+            bill.setDepositAmount(depositAmount);
             bill.setCreatedAt(LocalDateTime.now());
-            billRepository.save(bill);
+            Bill savedBill = billRepository.save(bill);
+
+            // 创建押金支付记录
+            Payment payment = new Payment();
+            payment.setBillId(savedBill.getId());
+            payment.setAmount(depositAmount);
+            payment.setPaymentMethod("cash");
+            payment.setPaymentType("deposit");
+            payment.setPaymentDate(LocalDateTime.now());
+            payment.setEmployeeId(employeeId);
+            paymentRepository.save(payment);
 
             // 4. 更新房间状态为已入住
             roomRepository.findById(rr.getRoomId()).ifPresent(room -> {
@@ -456,6 +477,11 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public ReservationResponse assignRoom(Integer id, Integer roomId) {
+        return assignRoom(id, roomId, null);
+    }
+
+    @Override
+    public ReservationResponse assignRoom(Integer id, Integer roomId, Integer roomTypeId) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("预订不存在: " + id));
 
@@ -479,10 +505,28 @@ public class ReservationServiceImpl implements ReservationService {
             throw new IllegalStateException("预订没有房间明细");
         }
 
+        // 如果更换了房型，需要更新房间明细的房型和价格
+        Integer effectiveRoomTypeId = roomTypeId;
+        BigDecimal effectiveRatePerNight = null;
+
+        if (roomTypeId != null && !roomTypeId.equals(room.getRoomTypeId())) {
+            RoomType newRoomType = roomTypeRepository.findById(roomTypeId)
+                    .orElseThrow(() -> new IllegalArgumentException("房型不存在: " + roomTypeId));
+            effectiveRatePerNight = newRoomType.getBasePrice();
+        } else {
+            effectiveRoomTypeId = room.getRoomTypeId();
+        }
+
         boolean assigned = false;
         for (ReservationRoom rr : rooms) {
-            if (rr.getRoomId() == null && rr.getRoomTypeId().equals(room.getRoomTypeId())) {
+            if (rr.getRoomId() == null && (effectiveRoomTypeId.equals(rr.getRoomTypeId()) || roomTypeId != null)) {
                 rr.setRoomId(roomId);
+                if (roomTypeId != null) {
+                    rr.setRoomTypeId(effectiveRoomTypeId);
+                    if (effectiveRatePerNight != null) {
+                        rr.setRatePerNight(effectiveRatePerNight);
+                    }
+                }
                 reservationRoomRepository.save(rr);
                 assigned = true;
                 break;
@@ -493,13 +537,43 @@ public class ReservationServiceImpl implements ReservationService {
             if (rooms.size() == 1) {
                 ReservationRoom rr = rooms.get(0);
                 rr.setRoomId(roomId);
+                if (roomTypeId != null) {
+                    rr.setRoomTypeId(effectiveRoomTypeId);
+                    if (effectiveRatePerNight != null) {
+                        rr.setRatePerNight(effectiveRatePerNight);
+                    }
+                }
                 reservationRoomRepository.save(rr);
             } else {
                 throw new IllegalArgumentException("未找到匹配房型的房间明细进行分配");
             }
         }
 
+        // 如果更换了房型，更新预订总金额
+        if (roomTypeId != null) {
+            recalculateReservationTotalAmount(reservation);
+        }
+
         return convertToResponse(reservation);
+    }
+
+    private void recalculateReservationTotalAmount(Reservation reservation) {
+        List<ReservationRoom> rooms = reservationRoomRepository.findByReservationId(reservation.getId());
+        if (rooms.isEmpty() || reservation.getCheckInDate() == null || reservation.getCheckOutDate() == null) {
+            return;
+        }
+
+        long nights = ChronoUnit.DAYS.between(reservation.getCheckInDate(), reservation.getCheckOutDate());
+        nights = Math.max(nights, 1);
+
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (ReservationRoom rr : rooms) {
+            BigDecimal rate = rr.getRatePerNight() != null ? rr.getRatePerNight() : BigDecimal.ZERO;
+            totalAmount = totalAmount.add(rate.multiply(BigDecimal.valueOf(nights)));
+        }
+
+        reservation.setTotalAmount(totalAmount);
+        reservationRepository.save(reservation);
     }
 
     @Override

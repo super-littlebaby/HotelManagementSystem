@@ -86,4 +86,13 @@ public interface BillRepository extends JpaRepository<Bill, Integer> {
      */
     @Query("SELECT b FROM Bill b WHERE b.checkInId = :checkInId AND b.checkInId IN (SELECT c.id FROM CheckIn c WHERE c.roomId IN (SELECT r.id FROM Room r WHERE r.hotelId = :hotelId)) ORDER BY b.id DESC")
     List<Bill> findByCheckInIdAndHotelIdOrderByIdDesc(@Param("checkInId") Integer checkInId, @Param("hotelId") Integer hotelId);
+
+    /**
+     * 根据入住ID和账单状态查询账单列表
+     *
+     * @param checkInId 入住ID
+     * @param billStatus 账单状态
+     * @return 账单列表
+     */
+    List<Bill> findByCheckInIdAndBillStatus(Integer checkInId, String billStatus);
 }

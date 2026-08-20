@@ -76,6 +76,9 @@ public class EmployeeController {
     public ResponseResult<Map<String, Object>> create(
             @Parameter(description = "员工信息", required = true) @Valid @RequestBody Employee employee,
             HttpServletRequest request) {
+        if (employee.getPasswordHash() == null || employee.getPasswordHash().isBlank()) {
+            return ResponseResult.error(400, "密码不能为空");
+        }
         Employee currentEmployee = (Employee) request.getAttribute("employee");
         if (!dataIsolationService.isGroupAdmin(currentEmployee)) {
             if (!dataIsolationService.canAccessHotel(currentEmployee, employee.getHotelId())) {
@@ -84,6 +87,10 @@ public class EmployeeController {
             if ("admin".equals(employee.getRole())) {
                 return ResponseResult.error(403, "无权创建管理员角色的员工");
             }
+        }
+        // 入职时间默认取创建当天（服务端时间）
+        if (employee.getHireDate() == null) {
+            employee.setHireDate(java.time.LocalDate.now());
         }
         Employee saved = employeeService.save(employee);
         return ResponseResult.success("创建成功", maskEmployeeInfo(saved));
@@ -122,11 +129,58 @@ public class EmployeeController {
                 }
             }
         }
+        if ("admin".equals(existing.getRole()) && employee.getIsActive() != null && !employee.getIsActive()) {
+            return ResponseResult.error(403, "管理员账号状态不可修改为离职");
+        }
         if (employee.getPasswordHash() == null || employee.getPasswordHash().isEmpty()) {
             employee.setPasswordHash(existing.getPasswordHash());
         }
+        if (employee.getIsActive() == null) {
+            employee.setIsActive(existing.getIsActive());
+        }
+        if (employee.getHireDate() == null) {
+            employee.setHireDate(existing.getHireDate());
+        }
         employee.setId(id);
         return ResponseResult.success(maskEmployeeInfo(employeeService.save(employee)));
+    }
+
+    @Operation(summary = "修改员工状态", description = "切换员工在职/离职状态，管理员账号状态不可修改为离职")
+    @PatchMapping("/{id}/status")
+    public ResponseResult<Map<String, Object>> toggleStatus(
+            @Parameter(description = "员工ID", required = true) @PathVariable Integer id,
+            @Parameter(description = "目标状态：true=在职，false=离职", required = true) @RequestParam Boolean isActive,
+            HttpServletRequest request) {
+        java.util.Optional<Employee> employeeOpt = employeeService.findById(id);
+        if (employeeOpt.isEmpty()) {
+            return ResponseResult.error(404, "员工不存在");
+        }
+        Employee employee = employeeOpt.get();
+        Employee currentEmployee = (Employee) request.getAttribute("employee");
+
+        if (!dataIsolationService.isGroupAdmin(currentEmployee)) {
+            if (!dataIsolationService.canAccessHotel(currentEmployee, employee.getHotelId())) {
+                return ResponseResult.error(403, "无权修改该员工状态");
+            }
+            if ("admin".equals(employee.getRole())) {
+                return ResponseResult.error(403, "无权修改管理员状态");
+            }
+            String currentRole = currentEmployee.getRole();
+            String targetRole = employee.getRole();
+            if (!"manager".equals(currentRole) || !isLowerRole(targetRole, "manager")) {
+                if (!"manager".equals(currentRole) || "manager".equals(targetRole)) {
+                    return ResponseResult.error(403, "无权修改同级或更高权限员工的状态");
+                }
+            }
+        }
+
+        if ("admin".equals(employee.getRole()) && !isActive) {
+            return ResponseResult.error(403, "管理员账号状态不可修改为离职");
+        }
+
+        employee.setIsActive(isActive);
+        Employee saved = employeeService.save(employee);
+        return ResponseResult.success(isActive ? "已设置为在职" : "已设置为离职", maskEmployeeInfo(saved));
     }
 
     @Operation(summary = "删除员工", description = "根据员工ID删除员工记录")
@@ -316,7 +370,16 @@ public class EmployeeController {
     public ResponseResult<Object> login(@RequestBody Map<String, String> request) {
         String username = request.get("username");
         String password = request.get("password");
-        
+
+        java.util.Optional<Employee> existingOpt = employeeService.findByUsername(username);
+        if (existingOpt.isEmpty()) {
+            return ResponseResult.error(401, "用户名或密码错误");
+        }
+        Employee existing = existingOpt.get();
+        if (existing.getIsActive() == null || !existing.getIsActive()) {
+            return ResponseResult.error(403, "该账号已离职，禁止登录系统");
+        }
+
         java.util.Optional<Employee> employeeOpt = employeeService.login(username, password);
         if (employeeOpt.isPresent()) {
             Employee employee = employeeOpt.get();

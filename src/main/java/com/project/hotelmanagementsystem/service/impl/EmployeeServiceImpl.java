@@ -48,6 +48,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                 employee.setPasswordHash(passwordEncoder.encode(employee.getPasswordHash()));
             }
         }
+        if (employee.getIsActive() == null) {
+            employee.setIsActive(true);
+        }
         return employeeRepository.save(employee);
     }
 

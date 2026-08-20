@@ -1,3 +1,7 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -53,8 +57,10 @@ img {
 
 .reservation-summary {
   width: 360px;
+  min-width: 280px;
   position: sticky;
   top: 20px;
+  flex-shrink: 0;
 }
 
 .form-section {
@@ -471,7 +477,7 @@ img {
 .auth {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
 }
 
 .welcome {
@@ -479,12 +485,22 @@ img {
 }
 
 .login-btn, .register-btn, .logout-btn {
-  padding: 8px 20px;
-  border-radius: 20px;
+  padding: 0 24px;
+  height: 36px;
+  min-width: 80px;
+  border-radius: 18px;
   font-size: 14px;
   cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  box-sizing: border-box;
+  outline: none;
+  vertical-align: middle;
   border: none;
-  transition: all 0.3s;
 }
 
 .login-btn {
@@ -494,6 +510,8 @@ img {
 
 .login-btn:hover {
   background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .register-btn {
@@ -502,7 +520,9 @@ img {
 }
 
 .register-btn:hover {
-  background: #f0f0f0;
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .logout-btn {
@@ -512,6 +532,7 @@ img {
 
 .logout-btn:hover {
   background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }
 
 /* ============ Home Page Styles ============ */
@@ -599,11 +620,12 @@ img {
   object-fit: cover;
 }
 
-.hotel-info {
+.home-page .hotel-info {
   padding: 20px;
+  margin: 0;
 }
 
-.hotel-info h4 {
+.home-page .hotel-info h4 {
   font-size: 20px;
   margin-bottom: 10px;
   color: #333;
@@ -668,7 +690,7 @@ img {
   font-size: 16px;
 }
 
-.hotel-info {
+.hotel-detail-page .hotel-info {
   margin: 30px 0;
 }
 
@@ -678,7 +700,7 @@ img {
   margin-bottom: 30px;
 }
 
-.info-item {
+.hotel-detail-page .info-item {
   display: flex;
   flex-direction: column;
 }
@@ -877,6 +899,7 @@ img {
 
 .login-page .login-btn {
   width: 100%;
+  height: auto;
   padding: 15px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
@@ -886,6 +909,7 @@ img {
   cursor: pointer;
   margin-bottom: 20px;
   transition: all 0.3s;
+  box-sizing: border-box;
 }
 
 .login-page .login-btn:hover {
@@ -998,7 +1022,7 @@ img {
   margin-top: 5px;
 }
 
-.register-btn {
+.submit-form-btn {
   width: 100%;
   padding: 15px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1011,7 +1035,7 @@ img {
   transition: all 0.3s;
 }
 
-.register-btn:hover {
+.submit-form-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
@@ -1159,7 +1183,7 @@ img {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.hotel-info h3 {
+.reservation-header .hotel-info h3 {
   font-size: 18px;
   color: #333;
   margin-bottom: 6px;
@@ -1594,6 +1618,313 @@ img {
   }
 
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .header-content {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .nav {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .nav-link {
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+
+  .auth {
+    gap: 8px;
+  }
+
+  .login-btn, .register-btn, .logout-btn {
+    padding: 0 16px;
+    min-width: 60px;
+    font-size: 13px;
+  }
+
+  .history-stays-page .checkin-info {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============ History Stays Page Styles ============ */
+.history-stays-page {
+  min-height: calc(100vh - 140px);
+  background: #f5f6fa;
+  padding: 30px 0;
+}
+
+.history-stays-page .container h2 {
+  font-size: 28px;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.history-stays-page .action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #666;
+}
+
+.history-stays-page .refresh-btn {
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.history-stays-page .refresh-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.history-stays-page .refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.history-stays-page .checkin-list {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.history-stays-page .checkin-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s;
+}
+
+.history-stays-page .checkin-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.history-stays-page .checkin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-stays-page .checkin-header .hotel-info h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.history-stays-page .checkin-id {
+  font-size: 13px;
+  color: #999;
+}
+
+.history-stays-page .checkin-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.history-stays-page .info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-stays-page .info-item .label {
+  font-size: 13px;
+  color: #999;
+}
+
+.history-stays-page .info-item .value {
+  font-size: 15px;
+  color: #333;
+  font-weight: 500;
+}
+
+.history-stays-page .info-item .price {
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.history-stays-page .checkin-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 15px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.history-stays-page .total-charge {
+  font-size: 14px;
+  color: #666;
+}
+
+.history-stays-page .total-charge .price {
+  color: #e74c3c;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.history-stays-page .actions {
+  display: flex;
+  gap: 10px;
+}
+
+.history-stays-page .btn-detail {
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: opacity 0.2s;
+}
+
+.history-stays-page .btn-detail:hover {
+  opacity: 0.9;
+}
+
+.history-stays-page .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.history-stays-page .empty-state .empty-icon {
+  font-size: 60px;
+  margin-bottom: 16px;
+}
+
+.history-stays-page .empty-state p {
+  color: #666;
+  font-size: 16px;
+  margin: 8px 0;
+}
+
+.history-stays-page .empty-state .empty-tip {
+  color: #999;
+  font-size: 14px;
+}
+
+/* 详情视图 */
+.history-stays-page .detail-view {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.history-stays-page .back-btn {
+  padding: 10px 20px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.history-stays-page .back-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.history-stays-page .detail-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 30px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.history-stays-page .detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-stays-page .detail-header h3 {
+  font-size: 20px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.history-stays-page .detail-section {
+  margin-bottom: 25px;
+}
+
+.history-stays-page .detail-section h4 {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #667eea;
+  display: inline-block;
+}
+
+.history-stays-page .detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.history-stays-page .detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-stays-page .detail-item .label {
+  font-size: 13px;
+  color: #999;
+}
+
+.history-stays-page .detail-item .value {
+  font-size: 15px;
+  color: #333;
+  font-weight: 500;
+}
+
+.history-stays-page .detail-item .price {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.history-stays-page .notes {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  margin: 0;
+}
+
+/* 响应式 - History Stays */
+@media (max-width: 768px) {
+  .history-stays-page .checkin-info {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .history-stays-page .detail-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,9 +1,9 @@
 package com.project.hotelmanagementsystem.controller;
 
 import com.project.hotelmanagementsystem.common.ResponseResult;
-import com.project.hotelmanagementsystem.entity.Bill;
-import com.project.hotelmanagementsystem.entity.Employee;
-import com.project.hotelmanagementsystem.repository.BillRepository;
+import com.project.hotelmanagementsystem.dto.BillDTO;
+import com.project.hotelmanagementsystem.entity.*;
+import com.project.hotelmanagementsystem.repository.*;
 import com.project.hotelmanagementsystem.service.BillService;
 import com.project.hotelmanagementsystem.service.DataIsolationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,7 +12,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 账单控制层
@@ -30,18 +33,102 @@ public class BillController {
     private final BillService billService;
     private final BillRepository billRepository;
     private final DataIsolationService dataIsolationService;
+    private final CheckInRepository checkInRepository;
+    private final RoomRepository roomRepository;
+    private final GuestRepository guestRepository;
+    private final BillItemRepository billItemRepository;
+    private final RefundRepository refundRepository;
+    private final PaymentRepository paymentRepository;
 
-    /**
-     * 构造函数注入账单Service
-     *
-     * @param billService          账单Service
-     * @param billRepository       账单Repository
-     * @param dataIsolationService 数据隔离Service
-     */
-    public BillController(BillService billService, BillRepository billRepository, DataIsolationService dataIsolationService) {
+    public BillController(BillService billService, BillRepository billRepository, DataIsolationService dataIsolationService,
+                          CheckInRepository checkInRepository, RoomRepository roomRepository,
+                          GuestRepository guestRepository, BillItemRepository billItemRepository,
+                          RefundRepository refundRepository, PaymentRepository paymentRepository) {
         this.billService = billService;
         this.billRepository = billRepository;
         this.dataIsolationService = dataIsolationService;
+        this.checkInRepository = checkInRepository;
+        this.roomRepository = roomRepository;
+        this.guestRepository = guestRepository;
+        this.billItemRepository = billItemRepository;
+        this.refundRepository = refundRepository;
+        this.paymentRepository = paymentRepository;
+    }
+
+    private BillDTO convertToDTO(Bill bill) {
+        BillDTO dto = new BillDTO();
+        dto.setId(bill.getId());
+        dto.setCheckInId(bill.getCheckInId());
+        dto.setBillStatus(bill.getBillStatus());
+        dto.setTotalAmount(bill.getTotalAmount());
+        dto.setPaidAmount(bill.getPaidAmount());
+        dto.setDepositAmount(bill.getDepositAmount());
+        dto.setCreatedAt(bill.getCreatedAt());
+        dto.setClosedAt(bill.getClosedAt());
+
+        CheckIn checkIn = checkInRepository.findById(bill.getCheckInId()).orElse(null);
+        if (checkIn != null) {
+            String guestName = null;
+            if (checkIn.getGuestId() != null) {
+                Guest guest = guestRepository.findById(checkIn.getGuestId()).orElse(null);
+                if (guest != null) {
+                    guestName = (guest.getFirstName() != null ? guest.getFirstName() : "") + " " +
+                            (guest.getLastName() != null ? guest.getLastName() : "");
+                    guestName = guestName.trim();
+                }
+            }
+            if (guestName == null || guestName.isEmpty()) {
+                guestName = checkIn.getGuestName();
+            }
+            dto.setGuestName(guestName);
+
+            if (checkIn.getRoomId() != null) {
+                Room room = roomRepository.findById(checkIn.getRoomId()).orElse(null);
+                if (room != null) {
+                    dto.setRoomNumber(room.getRoomNumber());
+                }
+            }
+
+            BigDecimal roomCharge = BigDecimal.ZERO;
+            if (checkIn.getRatePerNight() != null && checkIn.getCheckInTime() != null) {
+                java.time.LocalDateTime checkInTime = checkIn.getCheckInTime();
+                java.time.LocalDateTime checkOutTime = bill.getClosedAt() != null ? bill.getClosedAt() : java.time.LocalDateTime.now();
+                long days = java.time.temporal.ChronoUnit.DAYS.between(checkInTime.toLocalDate(), checkOutTime.toLocalDate());
+                days = Math.max(days, 1);
+                roomCharge = checkIn.getRatePerNight().multiply(BigDecimal.valueOf(days));
+            }
+            dto.setRoomCharge(roomCharge);
+
+            BigDecimal additionalCharges = billItemRepository.sumAmountByBillId(bill.getId());
+            if (additionalCharges == null) {
+                additionalCharges = BigDecimal.ZERO;
+            }
+            dto.setAdditionalCharges(additionalCharges);
+        }
+
+        BigDecimal refundAmount = BigDecimal.ZERO;
+        BigDecimal additionalPaymentAmount = BigDecimal.ZERO;
+
+        List<Refund> refunds = refundRepository.findByBillId(bill.getId());
+        if (refunds != null && !refunds.isEmpty()) {
+            for (Refund r : refunds) {
+                refundAmount = refundAmount.add(r.getAmount());
+            }
+        }
+
+        List<Payment> payments = paymentRepository.findByBillId(bill.getId());
+        if (payments != null && !payments.isEmpty()) {
+            for (Payment p : payments) {
+                if ("charge".equals(p.getPaymentType())) {
+                    additionalPaymentAmount = additionalPaymentAmount.add(p.getAmount());
+                }
+            }
+        }
+
+        dto.setRefundAmount(refundAmount);
+        dto.setAdditionalPaymentAmount(additionalPaymentAmount);
+
+        return dto;
     }
 
     /**
@@ -51,7 +138,7 @@ public class BillController {
      */
     @Operation(summary = "查询所有账单", description = "返回系统中所有账单记录的列表，根据员工权限过滤")
     @GetMapping
-    public ResponseResult<List<Bill>> findAll(HttpServletRequest request) {
+    public ResponseResult<List<BillDTO>> findAll(HttpServletRequest request) {
         Employee employee = (Employee) request.getAttribute("employee");
         List<Bill> bills;
         if (employee == null || dataIsolationService.isGroupAdmin(employee)) {
@@ -60,7 +147,8 @@ public class BillController {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
             bills = billRepository.findAllByHotelId(hotelId);
         }
-        return ResponseResult.success(bills);
+        List<BillDTO> dtos = bills.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return ResponseResult.success(dtos);
     }
 
     /**

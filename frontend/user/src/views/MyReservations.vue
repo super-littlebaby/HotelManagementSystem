@@ -29,7 +29,13 @@ const loadMyReservations = async () => {
   try {
     const res = await getMyReservations(guest.id)
     if (res.code === 200) {
-      reservations.value = res.data
+      reservations.value = res.data.sort((a, b) => {
+        const dateA = a.bookingDate || a.checkInDate
+        const dateB = b.bookingDate || b.checkInDate
+        const timeA = dateA ? new Date(dateA).getTime() : 0
+        const timeB = dateB ? new Date(dateB).getTime() : 0
+        return timeB - timeA
+      })
     } else {
       ElMessage.error(res.message || '加载预订列表失败')
     }
@@ -57,7 +63,13 @@ const handleSearch = async () => {
     }
 
     if (res.code === 200) {
-      reservations.value = res.data
+      reservations.value = res.data.sort((a, b) => {
+        const dateA = a.bookingDate || a.checkInDate
+        const dateB = b.bookingDate || b.checkInDate
+        const timeA = dateA ? new Date(dateA).getTime() : 0
+        const timeB = dateB ? new Date(dateB).getTime() : 0
+        return timeB - timeA
+      })
       if (res.data.length === 0) {
         ElMessage.info('未找到相关预订记录')
       }

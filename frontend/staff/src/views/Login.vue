@@ -41,7 +41,7 @@ const handleLogin = async () => {
     ElMessage.warning('请填写用户名和密码')
     return
   }
-  
+
   loading.value = true
   try {
     const response = await login(form.username, form.password)
@@ -53,7 +53,11 @@ const handleLogin = async () => {
       ElMessage.error(response.message || '登录失败')
     }
   } catch (error) {
-    ElMessage.error('登录失败，请检查网络')
+    if (error && error.message) {
+      ElMessage.error(error.message)
+    } else {
+      ElMessage.error('登录失败，请检查网络')
+    }
   } finally {
     loading.value = false
   }

@@ -207,6 +207,10 @@ public class RoomController {
         String newStatus = (String) requestBody.get("status");
         Integer changedBy = employee.getId();
         String notes = (String) requestBody.getOrDefault("notes", "");
+        // 设置为维修中时，必须填写备注说明损坏/维修原因
+        if ("out_of_order".equals(newStatus) && (notes == null || notes.trim().isEmpty())) {
+            return ResponseResult.error(400, "房间设置为维修中时必须填写备注说明");
+        }
         Room updated = roomService.updateStatus(id, newStatus, changedBy, notes);
         return ResponseResult.success(roomService.convertToDTO(updated));
     }
