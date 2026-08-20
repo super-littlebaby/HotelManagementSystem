@@ -48,14 +48,13 @@ export const cancelReservation = (id) => {
 }
 
 /**
- * 办理入住（支持同住客人信息）
+ * 办理入住（按房间录入实际入住人信息）
  * @param {Number} id - 预订ID
- * @param {Array} [stayGuests] - 同住客人信息列表（不含主登记人）
+ * @param {Object} data - 按房间分组的入住人信息 { rooms: [{ reservationRoomId, primaryGuestName, primaryIdType, primaryIdNumber, primaryPhone, stayGuests }] }
  * @returns {Promise} 入住结果
  */
-export const checkInReservation = (id, stayGuests) => {
-  const data = stayGuests && stayGuests.length > 0 ? { stayGuests } : {}
-  return request.put(`/reservations/${id}/check-in`, data)
+export const checkInReservation = (id, data) => {
+  return request.put(`/reservations/${id}/check-in`, data || {})
 }
 
 /**

@@ -1,6 +1,7 @@
 package com.project.hotelmanagementsystem.service;
 
 import com.project.hotelmanagementsystem.dto.checkin.CreateCheckInRequest;
+import com.project.hotelmanagementsystem.dto.reservation.CheckInReservationRequest;
 import com.project.hotelmanagementsystem.dto.reservation.CreateReservationRequest;
 import com.project.hotelmanagementsystem.dto.reservation.ReservationResponse;
 import com.project.hotelmanagementsystem.entity.Guest;
@@ -131,13 +132,13 @@ public interface ReservationService {
     ReservationResponse cancelReservation(Integer id);
 
     /**
-     * 办理入住（携带同住客人信息）
+     * 办理入住（按房间携带实际入住人信息）
      *
-     * @param id          预订ID
-     * @param stayGuests  同住客人信息列表（不含主登记人）
+     * @param id      预订ID
+     * @param request 按房间分组的入住人信息
      * @return 预订详情响应
      */
-    ReservationResponse checkInReservation(Integer id, List<CreateCheckInRequest.StayGuestRequest> stayGuests);
+    ReservationResponse checkInReservation(Integer id, CheckInReservationRequest request);
 
     /**
      * 分配房间（在已确认状态下分配房间）

@@ -235,21 +235,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.page {
-  padding: 20px;
-}
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 24px;
-  color: #333;
-}
-</style>

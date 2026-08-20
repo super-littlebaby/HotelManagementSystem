@@ -47,10 +47,12 @@
         <el-table-column prop="id" label="预订ID" width="80" />
         <el-table-column prop="hotelName" label="酒店" width="150" show-overflow-tooltip />
         <el-table-column prop="guestName" label="客人" width="120" />
-        <el-table-column label="房型" width="140">
+        <el-table-column label="房型" width="200">
           <template #default="{ row }">
             <span v-if="row.rooms && row.rooms.length > 0">
-              {{ row.rooms.length }}间 · {{ row.rooms[0].roomTypeName }}
+              <span v-for="(item, idx) in getRoomTypeSummary(row.rooms)" :key="idx" style="margin-right: 4px;">
+                {{ item.count }}间{{ item.name }}{{ idx < getRoomTypeSummary(row.rooms).length - 1 ? '、' : '' }}
+              </span>
             </span>
             <span v-else>-</span>
           </template>
@@ -68,7 +70,7 @@
         <el-table-column label="渠道" width="100">
           <template #default="{ row }">{{ getChannelLabel(row.channel) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="viewDetail(row)">详情</el-button>
             <el-button
@@ -78,14 +80,6 @@
               v-if="row.status === 'pending'"
             >
               确认
-            </el-button>
-            <el-button
-              size="small"
-              type="success"
-              @click="handleCheckIn(row)"
-              v-if="row.status === 'confirmed'"
-            >
-              办理入住
             </el-button>
             <el-button
               size="small"
@@ -214,67 +208,91 @@
       </template>
     </el-dialog>
 
-    <!-- 办理入住（同住客人信息录入）对话框 -->
-    <el-dialog v-model="checkInDialogVisible" title="办理入住 - 同住客人信息" width="800px">
+    <!-- 办理入住（按房间录入实际入住人信息）对话框 -->
+    <el-dialog v-model="checkInDialogVisible" title="办理入住 - 实际入住人信息" width="900px" top="5vh">
       <div v-if="currentReservation" class="check-in-content">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="预订ID">{{ currentReservation.id }}</el-descriptions-item>
-          <el-descriptions-item label="客人">{{ currentReservation.guestName }}</el-descriptions-item>
+          <el-descriptions-item label="预订人">{{ currentReservation.guestName }}</el-descriptions-item>
           <el-descriptions-item label="入住日期">{{ currentReservation.checkInDate }}</el-descriptions-item>
           <el-descriptions-item label="退房日期">{{ currentReservation.checkOutDate }}</el-descriptions-item>
         </el-descriptions>
 
-        <el-divider content-position="left">主登记人信息（自动填充）</el-divider>
         <el-alert
-          title="主登记人信息将自动从客人档案填充到同住客人表中"
-          type="info"
+          title="请为每个房间填写实际入住人信息（可能是帮别人预约，所以不要直接使用预订账号信息）"
+          type="warning"
           :closable="false"
           show-icon
-          style="margin-bottom: 15px"
+          style="margin: 15px 0"
         />
 
-        <el-divider content-position="left">
-          同住客人信息（预约 {{ totalStayGuests }} 人，已添加 {{ stayGuestForm.length }} 人）
-        </el-divider>
-        <div v-if="stayGuestForm.length === 0" style="margin-bottom: 15px">
-          <el-alert
-            title="仅主登记人入住时无需添加同住客人；如有同行人员请点击下方按钮添加"
-            type="success"
-            :closable="false"
-            show-icon
-          />
-        </div>
-        <div v-for="(guest, index) in stayGuestForm" :key="index" class="stay-guest-item">
+        <div v-for="(roomCheckIn, rIndex) in roomCheckInForms" :key="rIndex" class="room-checkin-block">
+          <div class="room-checkin-header">
+            房间 {{ rIndex + 1 }}：
+            <span class="room-info">{{ roomCheckIn.roomNumber || '未分配' }} - {{ roomCheckIn.roomTypeName || '' }}</span>
+            <span class="room-capacity">(成人 {{ roomCheckIn.adults }} / 儿童 {{ roomCheckIn.children }}，共 {{ roomCheckIn.totalGuests }} 人)</span>
+          </div>
+
+          <el-divider content-position="left">主登记人信息</el-divider>
           <el-form label-width="100px">
-            <el-form-item :label="`姓名${index + 1}`" required>
-              <el-input v-model="guest.name" :placeholder="`同住客人${index + 1}姓名`" />
+            <el-form-item label="姓名" required>
+              <el-input v-model="roomCheckIn.primaryGuestName" placeholder="请输入实际入住的主登记人姓名" />
             </el-form-item>
-            <el-form-item :label="`证件类型${index + 1}`">
-              <el-select v-model="guest.idType" placeholder="请选择证件类型">
+            <el-form-item label="证件类型" required>
+              <el-select v-model="roomCheckIn.primaryIdType" placeholder="请选择证件类型">
                 <el-option label="身份证" value="id_card" />
                 <el-option label="护照" value="passport" />
                 <el-option label="驾驶证" value="drivers_license" />
                 <el-option label="其他" value="other" />
               </el-select>
             </el-form-item>
-            <el-form-item :label="`证件号${index + 1}`" required>
-              <el-input v-model="guest.idNumber" :placeholder="`同住客人${index + 1}证件号`" />
+            <el-form-item label="证件号" required>
+              <el-input v-model="roomCheckIn.primaryIdNumber" placeholder="请输入主登记人证件号码" />
             </el-form-item>
-            <el-form-item>
-              <el-button type="danger" size="small" @click="removeStayGuest(index)">删除</el-button>
+            <el-form-item label="手机号">
+              <el-input v-model="roomCheckIn.primaryPhone" placeholder="请输入联系电话" />
             </el-form-item>
           </el-form>
+
+          <el-divider content-position="left">
+            同住客人信息（共需 {{ Math.max(0, roomCheckIn.totalGuests - 1) }} 人，已添加 {{ roomCheckIn.stayGuests.length }} 人）
+          </el-divider>
+          <div v-if="roomCheckIn.totalGuests <= 1" style="color: #999; padding: 5px 0 10px;">
+            单人入住，无需填写同住客人信息
+          </div>
+          <div v-for="(guest, gIndex) in roomCheckIn.stayGuests" :key="gIndex" class="stay-guest-item">
+            <div class="stay-guest-header">同住客人 {{ gIndex + 1 }}</div>
+            <el-form label-width="100px">
+              <el-form-item label="姓名" required>
+                <el-input v-model="guest.name" placeholder="请输入姓名" />
+              </el-form-item>
+              <el-form-item label="证件类型">
+                <el-select v-model="guest.idType" placeholder="请选择证件类型">
+                  <el-option label="身份证" value="id_card" />
+                  <el-option label="护照" value="passport" />
+                  <el-option label="驾驶证" value="drivers_license" />
+                  <el-option label="其他" value="other" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="证件号" required>
+                <el-input v-model="guest.idNumber" placeholder="请输入证件号码" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="danger" size="small" @click="removeStayGuest(rIndex, gIndex)">删除</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+          <el-button
+            v-if="roomCheckIn.stayGuests.length < roomCheckIn.totalGuests - 1"
+            type="primary"
+            plain
+            size="small"
+            @click="addStayGuest(rIndex)"
+            style="margin-top: 5px"
+          >
+            + 添加同住客人
+          </el-button>
         </div>
-        <el-button
-          type="primary"
-          plain
-          size="small"
-          :disabled="stayGuestForm.length >= totalStayGuests - 1"
-          @click="addStayGuest"
-          style="margin-top: 5px"
-        >
-          + 添加同住客人（最多 {{ Math.max(0, totalStayGuests - 1) }} 人）
-        </el-button>
       </div>
       <template #footer>
         <el-button @click="checkInDialogVisible = false">取消</el-button>
@@ -285,7 +303,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getReservations,
@@ -313,18 +331,7 @@ const selectedRoomId = ref(null)
 const selectedRoomTypeId = ref(null)
 const availableRooms = ref([])
 const roomTypes = ref([])
-const stayGuestForm = ref([])
-
-// 计算当前入住所需的总人数（成人 + 儿童，取第一个房间的数据）
-const totalStayGuests = computed(() => {
-  if (!currentReservation.value || !currentReservation.value.rooms || currentReservation.value.rooms.length === 0) {
-    return 1
-  }
-  const room = currentReservation.value.rooms[0]
-  const adults = room.adults || 1
-  const children = room.children || 0
-  return adults + children
-})
+const roomCheckInForms = ref([])
 
 const searchForm = reactive({
   type: 'all',
@@ -378,6 +385,19 @@ const getSearchPlaceholder = () => {
 const formatDateTime = (dateTimeStr) => {
   if (!dateTimeStr) return ''
   return dateTimeStr.replace('T', ' ').substring(0, 16)
+}
+
+const getRoomTypeSummary = (rooms) => {
+  if (!rooms || rooms.length === 0) return []
+  const map = {}
+  for (const room of rooms) {
+    const name = room.roomTypeName || '未知房型'
+    if (!map[name]) {
+      map[name] = { name, count: 0 }
+    }
+    map[name].count++
+  }
+  return Object.values(map)
 }
 
 const hasUnassignedRoom = (reservation) => {
@@ -480,26 +500,9 @@ const handleConfirm = async (row) => {
   if (!row) return
 
   try {
-    const [roomTypesRes] = await Promise.all([
-      getRoomTypes()
-    ])
-
-    if (roomTypesRes.code === 200) {
-      roomTypes.value = roomTypesRes.data
-    }
-
-    const roomTypeId = row.rooms?.[0]?.roomTypeId
-    selectedRoomTypeId.value = roomTypeId
-
-    if (roomTypeId) {
-      await handleRoomTypeChange(roomTypeId)
-    }
-
-    currentReservation.value = row
-    selectedRoomId.value = null
-    assignRoomDialogVisible.value = true
-  } catch (error) {
     doConfirm(row.id, null)
+  } catch (error) {
+    ElMessage.error('确认失败')
   }
 }
 
@@ -639,12 +642,28 @@ const handleCheckIn = async (row) => {
   if (!row) return
 
   try {
-    // 加载预订详情，获取成人数和儿童数
     const res = await getReservationById(row.id)
     if (res.code === 200) {
       currentReservation.value = res.data
-      // 初始化为空列表，由用户按实际入住人数动态添加同住客人
-      stayGuestForm.value = []
+      // 按房间初始化入住人信息表单
+      const rooms = res.data.rooms || []
+      roomCheckInForms.value = rooms.map(r => {
+        const adults = r.adults || 1
+        const children = r.children || 0
+        return {
+          reservationRoomId: r.id,
+          roomNumber: r.roomNumber || '未分配',
+          roomTypeName: r.roomTypeName || '',
+          adults,
+          children,
+          totalGuests: adults + children,
+          primaryGuestName: '',
+          primaryIdType: 'id_card',
+          primaryIdNumber: '',
+          primaryPhone: '',
+          stayGuests: []
+        }
+      })
       checkInDialogVisible.value = true
     } else {
       ElMessage.error(res.message || '获取预订详情失败')
@@ -654,36 +673,52 @@ const handleCheckIn = async (row) => {
   }
 }
 
-const addStayGuest = () => {
-  if (stayGuestForm.value.length >= totalStayGuests.value - 1) {
-    ElMessage.warning(`同住客人最多 ${Math.max(0, totalStayGuests.value - 1)} 人`)
+const addStayGuest = (roomIndex) => {
+  const room = roomCheckInForms.value[roomIndex]
+  if (!room) return
+  if (room.stayGuests.length >= room.totalGuests - 1) {
+    ElMessage.warning(`同住客人最多 ${Math.max(0, room.totalGuests - 1)} 人`)
     return
   }
-  stayGuestForm.value.push({
+  room.stayGuests.push({
     name: '',
     idType: 'id_card',
-    idNumber: '',
-    isPrimary: false
+    idNumber: ''
   })
 }
 
-const removeStayGuest = (index) => {
-  stayGuestForm.value.splice(index, 1)
+const removeStayGuest = (roomIndex, guestIndex) => {
+  roomCheckInForms.value[roomIndex].stayGuests.splice(guestIndex, 1)
 }
 
 const confirmCheckIn = async () => {
   if (!currentReservation.value) return
 
-  // 校验已添加的同住客人信息
-  for (let i = 0; i < stayGuestForm.value.length; i++) {
-    const g = stayGuestForm.value[i]
-    if (!g.name || !g.name.trim()) {
-      ElMessage.warning(`请填写同住客人${i + 1}的姓名`)
+  // 校验每个房间的入住人信息
+  for (let r = 0; r < roomCheckInForms.value.length; r++) {
+    const rc = roomCheckInForms.value[r]
+    if (!rc.primaryGuestName || !rc.primaryGuestName.trim()) {
+      ElMessage.warning(`房间 ${r + 1}：请填写主登记人姓名`)
       return
     }
-    if (!g.idNumber || !g.idNumber.trim()) {
-      ElMessage.warning(`请填写同住客人${i + 1}的证件号`)
+    if (!rc.primaryIdType) {
+      ElMessage.warning(`房间 ${r + 1}：请选择主登记人证件类型`)
       return
+    }
+    if (!rc.primaryIdNumber || !rc.primaryIdNumber.trim()) {
+      ElMessage.warning(`房间 ${r + 1}：请填写主登记人证件号`)
+      return
+    }
+    for (let g = 0; g < rc.stayGuests.length; g++) {
+      const guest = rc.stayGuests[g]
+      if (!guest.name || !guest.name.trim()) {
+        ElMessage.warning(`房间 ${r + 1}：请填写同住客人 ${g + 1} 的姓名`)
+        return
+      }
+      if (!guest.idNumber || !guest.idNumber.trim()) {
+        ElMessage.warning(`房间 ${r + 1}：请填写同住客人 ${g + 1} 的证件号`)
+        return
+      }
     }
   }
 
@@ -698,15 +733,24 @@ const confirmCheckIn = async () => {
       }
     )
 
-    // 只提交实际填写的同住客人信息（不含主登记人，主登记人由后端自动填充）
-    const stayGuests = stayGuestForm.value.map(g => ({
-      name: g.name,
-      idType: g.idType || 'id_card',
-      idNumber: g.idNumber,
-      isPrimary: false
-    }))
+    // 按房间分组提交入住人信息
+    const submitData = {
+      rooms: roomCheckInForms.value.map(rc => ({
+        reservationRoomId: rc.reservationRoomId,
+        primaryGuestName: rc.primaryGuestName,
+        primaryIdType: rc.primaryIdType,
+        primaryIdNumber: rc.primaryIdNumber,
+        primaryPhone: rc.primaryPhone,
+        stayGuests: rc.stayGuests.map(g => ({
+          name: g.name,
+          idType: g.idType || 'id_card',
+          idNumber: g.idNumber,
+          isPrimary: false
+        }))
+      }))
+    }
 
-    const res = await checkInReservation(currentReservation.value.id, stayGuests)
+    const res = await checkInReservation(currentReservation.value.id, submitData)
     if (res.code === 200) {
       ElMessage.success('办理入住成功')
       checkInDialogVisible.value = false
@@ -760,53 +804,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.page {
-  padding: 20px;
-}
 
-.page-header {
-  margin-bottom: 20px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 24px;
-  color: #333;
-}
-
-.search-card {
-  margin-bottom: 20px;
-}
-
-.table-card {
-  margin-bottom: 20px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 0;
-  color: #999;
-}
-
-.detail-content {
-  padding: 10px 0;
-}
-
-.detail-content h4 {
-  margin: 20px 0 10px;
-  font-size: 16px;
-  color: #333;
-}
-
-.check-in-content {
-  padding: 10px 0;
-}
-
-.stay-guest-item {
-  padding: 10px;
-  margin-bottom: 15px;
-  background: #f5f7fa;
-  border-radius: 4px;
-}
-</style>

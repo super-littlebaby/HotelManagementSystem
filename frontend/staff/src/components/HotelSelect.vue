@@ -116,8 +116,4 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
-.el-autocomplete {
-  width: 100%;
-}
-</style>
+

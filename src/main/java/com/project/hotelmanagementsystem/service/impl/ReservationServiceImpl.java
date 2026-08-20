@@ -1,6 +1,7 @@
 package com.project.hotelmanagementsystem.service.impl;
 
 import com.project.hotelmanagementsystem.dto.checkin.CreateCheckInRequest;
+import com.project.hotelmanagementsystem.dto.reservation.CheckInReservationRequest;
 import com.project.hotelmanagementsystem.dto.reservation.CreateReservationRequest;
 import com.project.hotelmanagementsystem.dto.reservation.ReservationResponse;
 import com.project.hotelmanagementsystem.dto.reservation.ReservationRoomRequest;
@@ -290,7 +291,7 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     @Override
-    public ReservationResponse checkInReservation(Integer id, List<CreateCheckInRequest.StayGuestRequest> stayGuests) {
+    public ReservationResponse checkInReservation(Integer id, CheckInReservationRequest request) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("预订不存在: " + id));
 
@@ -304,13 +305,14 @@ public class ReservationServiceImpl implements ReservationService {
             throw new IllegalStateException("请先为所有房间分配房间号再办理入住");
         }
 
-        // 加载主登记客人档案，用于填充入住记录和同住客人表中的个人信息
-        Guest guest = guestRepository.findById(reservation.getGuestId())
-                .orElseThrow(() -> new IllegalStateException("预订关联的客人档案不存在: " + reservation.getGuestId()));
-        String primaryGuestName = (guest.getFirstName() != null ? guest.getFirstName() : "")
-                + (guest.getLastName() != null ? guest.getLastName() : "");
-        if (primaryGuestName.isEmpty()) {
-            primaryGuestName = "未知";
+        // 构建按 reservationRoomId 索引的入住人信息映射
+        java.util.Map<Integer, CheckInReservationRequest.RoomCheckInRequest> roomCheckInMap = new java.util.HashMap<>();
+        if (request != null && request.getRooms() != null) {
+            for (CheckInReservationRequest.RoomCheckInRequest rc : request.getRooms()) {
+                if (rc.getReservationRoomId() != null) {
+                    roomCheckInMap.put(rc.getReservationRoomId(), rc);
+                }
+            }
         }
 
         // 为每个房间创建入住记录
@@ -322,15 +324,44 @@ public class ReservationServiceImpl implements ReservationService {
             int adults = rr.getAdults() != null ? rr.getAdults() : 1;
             int children = rr.getChildren() != null ? rr.getChildren() : 0;
 
-            // 1. 创建入住登记记录（从客人档案填充个人信息）
+            CheckInReservationRequest.RoomCheckInRequest roomCheckIn = roomCheckInMap.get(rr.getId());
+            String primaryGuestName;
+            String primaryIdType = null;
+            String primaryIdNumber = null;
+            String primaryPhone = null;
+            Integer primaryGuestId = null;
+
+            if (roomCheckIn != null) {
+                // 使用前端提交的实际入住人信息
+                primaryGuestName = roomCheckIn.getPrimaryGuestName();
+                primaryIdType = roomCheckIn.getPrimaryIdType();
+                primaryIdNumber = roomCheckIn.getPrimaryIdNumber();
+                primaryPhone = roomCheckIn.getPrimaryPhone();
+
+                // 如果证件号能在 guests 表匹配到，则设置 guest_id
+                if (primaryIdNumber != null && !primaryIdNumber.isEmpty()) {
+                    Optional<Guest> matchedGuest = guestRepository.findByIdNumber(primaryIdNumber);
+                    if (matchedGuest.isPresent()) {
+                        primaryGuestId = matchedGuest.get().getId();
+                    }
+                }
+            } else {
+                throw new IllegalStateException("缺少房间明细(ID=" + rr.getId() + ")的入住人信息");
+            }
+
+            if (primaryGuestName == null || primaryGuestName.trim().isEmpty()) {
+                throw new IllegalStateException("房间明细(ID=" + rr.getId() + ")的主登记人姓名不能为空");
+            }
+
+            // 1. 创建入住登记记录（使用前端提交的实际入住人信息）
             CheckIn checkIn = new CheckIn();
             checkIn.setReservationId(id);
             checkIn.setHotelId(reservation.getHotelId());
-            checkIn.setGuestId(reservation.getGuestId());
+            checkIn.setGuestId(primaryGuestId);
             checkIn.setGuestName(primaryGuestName);
-            checkIn.setIdType(guest.getIdType());
-            checkIn.setIdNumber(guest.getIdNumber());
-            checkIn.setPhone(guest.getPhone());
+            checkIn.setIdType(primaryIdType);
+            checkIn.setIdNumber(primaryIdNumber);
+            checkIn.setPhone(primaryPhone);
             checkIn.setRoomId(rr.getRoomId());
             checkIn.setAdults(adults);
             checkIn.setChildren(children);
@@ -340,30 +371,30 @@ public class ReservationServiceImpl implements ReservationService {
             checkIn.setRatePerNight(rr.getRatePerNight());
             checkIn.setNotes(reservation.getSpecialRequests());
 
-            // 先保存入住记录，获取入住登记ID（确保同住客人表的check_in_id不为空）
             CheckIn savedCheckIn = checkInRepository.save(checkIn);
 
-            // 2. 创建同住客人记录
-            // 第一条始终为主登记人（个人信息从客人档案填充，guest_id为主登记人的guest_id）
+            // 2. 创建同住客人记录（主登记人 + 同住人员）
             List<StayGuest> stayGuestList = new ArrayList<>();
+
+            // 主登记人
             StayGuest primaryStayGuest = new StayGuest();
             primaryStayGuest.setCheckInId(savedCheckIn.getId());
-            primaryStayGuest.setGuestId(reservation.getGuestId());
+            primaryStayGuest.setGuestId(primaryGuestId);
             primaryStayGuest.setName(primaryGuestName);
-            primaryStayGuest.setIdType(guest.getIdType());
-            primaryStayGuest.setIdNumber(guest.getIdNumber());
+            primaryStayGuest.setIdType(primaryIdType);
+            primaryStayGuest.setIdNumber(primaryIdNumber);
             primaryStayGuest.setIsPrimary(true);
             stayGuestList.add(primaryStayGuest);
 
-            // 其余同住客人按实际填写的数量登记（guest_id统一设为主登记人的guest_id）
-            if (stayGuests != null) {
-                for (CreateCheckInRequest.StayGuestRequest req : stayGuests) {
+            // 同住人员
+            if (roomCheckIn.getStayGuests() != null) {
+                for (CreateCheckInRequest.StayGuestRequest req : roomCheckIn.getStayGuests()) {
                     if (req == null || req.getName() == null || req.getName().trim().isEmpty()) {
                         continue;
                     }
                     StayGuest sg = new StayGuest();
                     sg.setCheckInId(savedCheckIn.getId());
-                    sg.setGuestId(reservation.getGuestId());
+                    sg.setGuestId(primaryGuestId);
                     sg.setName(req.getName());
                     sg.setIdType(req.getIdType());
                     sg.setIdNumber(req.getIdNumber());
@@ -372,7 +403,6 @@ public class ReservationServiceImpl implements ReservationService {
                 }
             }
 
-            // 保存所有同住客人记录（此时checkInId已确定，不会出现为空的情况）
             stayGuestRepository.saveAll(stayGuestList);
 
             // 3. 为入住记录创建账单

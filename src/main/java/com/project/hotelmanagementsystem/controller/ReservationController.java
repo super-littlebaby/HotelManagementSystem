@@ -242,18 +242,18 @@ public class ReservationController {
     }
 
     /**
-     * 办理入住（员工端，支持同住客人信息录入）
+     * 办理入住（员工端，按房间录入实际入住人信息）
      *
      * @param id           预订ID
-     * @param requestBody  请求体（含同住客人信息）
+     * @param requestBody  请求体（按房间分组的入住人信息）
      * @param request      HTTP请求
      * @return 预订详情
      */
-    @Operation(summary = "办理入住", description = "员工为已确认的预订办理入住手续，支持录入同住客人信息")
+    @Operation(summary = "办理入住", description = "员工为已确认的预订办理入住手续，按房间分别录入实际入住人信息")
     @PutMapping("/{id}/check-in")
     public ResponseResult<ReservationResponse> checkInReservation(
             @Parameter(description = "预订ID", required = true) @PathVariable Integer id,
-            @RequestBody(required = false) CheckInReservationRequest requestBody,
+            @RequestBody CheckInReservationRequest requestBody,
             HttpServletRequest request) {
 
         Employee employee = (Employee) request.getAttribute("employee");
@@ -261,11 +261,8 @@ public class ReservationController {
             return ResponseResult.error(401, "未授权");
         }
 
-        java.util.List<com.project.hotelmanagementsystem.dto.checkin.CreateCheckInRequest.StayGuestRequest> stayGuests =
-                (requestBody != null && requestBody.getStayGuests() != null) ? requestBody.getStayGuests() : null;
-
         try {
-            ReservationResponse response = reservationService.checkInReservation(id, stayGuests);
+            ReservationResponse response = reservationService.checkInReservation(id, requestBody);
             return ResponseResult.success("入住成功", response);
         } catch (IllegalArgumentException e) {
             return ResponseResult.error(404, e.getMessage());
