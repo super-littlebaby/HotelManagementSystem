@@ -27,11 +27,33 @@ const rooms = ref([
   }
 ])
 
-onMounted(() => {
-  loadHotels()
+onMounted(async () => {
+  await loadHotels()
   if (route.query.hotelId) {
     selectedHotelId.value = Number(route.query.hotelId)
-    loadRoomTypes(route.query.hotelId)
+    await loadRoomTypes(route.query.hotelId)
+  }
+  // 预选房型：在房型列表加载完成后回填第一间房
+  if (route.query.roomTypeId && selectedHotelId.value) {
+    const targetId = Number(route.query.roomTypeId)
+    const matched = roomTypes.value.find(rt => rt.id === targetId)
+    if (matched && rooms.value.length > 0) {
+      rooms.value[0].roomTypeId = targetId
+      // 按房型最大容纳推荐人数，但不低于当前默认值
+      if (matched.maxAdults && rooms.value[0].adults > matched.maxAdults) {
+        rooms.value[0].adults = matched.maxAdults
+      }
+      if (matched.maxChildren !== undefined && rooms.value[0].children > matched.maxChildren) {
+        rooms.value[0].children = matched.maxChildren
+      }
+    }
+  }
+  // 预选日期（支持页面间传参）
+  if (route.query.checkIn) {
+    checkInDate.value = String(route.query.checkIn)
+  }
+  if (route.query.checkOut) {
+    checkOutDate.value = String(route.query.checkOut)
   }
 })
 

@@ -95,4 +95,35 @@ public interface BillRepository extends JpaRepository<Bill, Integer> {
      * @return 账单列表
      */
     List<Bill> findByCheckInIdAndBillStatus(Integer checkInId, String billStatus);
+
+    /**
+     * 统计指定年月范围内，已结算账单的收入总额（全酒店/跨酒店管理员用）
+     *
+     * @param startOfMonth 当月开始时间（含）
+     * @param startOfNextMonth 下月开始时间（不含）
+     * @return 收入总额（BigDecimal）
+     */
+    @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM Bill b " +
+            "WHERE b.billStatus = 'closed' " +
+            "AND b.closedAt >= :startOfMonth AND b.closedAt < :startOfNextMonth")
+    java.math.BigDecimal sumMonthlyClosedRevenue(
+            @Param("startOfMonth") java.time.LocalDateTime startOfMonth,
+            @Param("startOfNextMonth") java.time.LocalDateTime startOfNextMonth);
+
+    /**
+     * 统计指定酒店在指定年月范围内，已结算账单的收入总额
+     *
+     * @param hotelId 酒店ID
+     * @param startOfMonth 当月开始时间（含）
+     * @param startOfNextMonth 下月开始时间（不含）
+     * @return 收入总额（BigDecimal）
+     */
+    @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM Bill b " +
+            "WHERE b.billStatus = 'closed' " +
+            "AND b.closedAt >= :startOfMonth AND b.closedAt < :startOfNextMonth " +
+            "AND b.checkInId IN (SELECT c.id FROM CheckIn c WHERE c.roomId IN (SELECT r.id FROM Room r WHERE r.hotelId = :hotelId))")
+    java.math.BigDecimal sumMonthlyClosedRevenueByHotelId(
+            @Param("hotelId") Integer hotelId,
+            @Param("startOfMonth") java.time.LocalDateTime startOfMonth,
+            @Param("startOfNextMonth") java.time.LocalDateTime startOfNextMonth);
 }

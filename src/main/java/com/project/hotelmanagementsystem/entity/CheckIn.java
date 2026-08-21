@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.springframework.data.annotation.Transient;
 
 /**
  * 入住登记实体类
@@ -79,6 +80,51 @@ public class CheckIn {
 
     public void setRoom(Room room) {
         this.room = room;
+    }
+
+    /**
+     * 房型名称（非数据库字段，用于前端展示）
+     */
+    @Transient
+    @jakarta.persistence.Transient
+    private String roomTypeName;
+
+    /**
+     * 酒店名称（非数据库字段，用于前端展示）
+     */
+    @Transient
+    @jakarta.persistence.Transient
+    private String hotelName;
+
+    /**
+     * 房间号（非数据库字段，用于前端展示，避免依赖 room 嵌套对象）
+     */
+    @Transient
+    @jakarta.persistence.Transient
+    private String roomNumber;
+
+    public String getRoomTypeName() {
+        return roomTypeName;
+    }
+
+    public void setRoomTypeName(String roomTypeName) {
+        this.roomTypeName = roomTypeName;
+    }
+
+    public String getHotelName() {
+        return hotelName;
+    }
+
+    public void setHotelName(String hotelName) {
+        this.hotelName = hotelName;
+    }
+
+    public String getRoomNumber() {
+        return roomNumber;
+    }
+
+    public void setRoomNumber(String roomNumber) {
+        this.roomNumber = roomNumber;
     }
 
     public Integer getId() {

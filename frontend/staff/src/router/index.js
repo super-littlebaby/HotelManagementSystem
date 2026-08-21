@@ -2,11 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { state } from '../stores/auth'
 
 const rolePermissions = {
-  admin: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills'],
-  manager: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills'],
-  front_desk: ['consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills'],
-  housekeeping: ['rooms', 'roomTypes', 'facilities', 'roomTypeFacilities'],
-  finance: ['roomTypes', 'roomTypeFacilities', 'facilities', 'consumableItems', 'checkins', 'bills']
+  admin: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
+  manager: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
+  front_desk: ['consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
+  housekeeping: ['rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'facilityDamage'],
+  finance: ['roomTypes', 'roomTypeFacilities', 'facilities', 'consumableItems', 'checkins', 'bills', 'facilityDamage']
 }
 
 const routes = [
@@ -92,6 +92,12 @@ const routes = [
     name: 'Bills',
     component: () => import('../views/Bills.vue'),
     meta: { requiresAuth: true, permission: 'bills' }
+  },
+  {
+    path: '/facility-damage',
+    name: 'FacilityDamage',
+    component: () => import('../views/FacilityDamage.vue'),
+    meta: { requiresAuth: true, permission: 'facilityDamage' }
   },
   {
     path: '/profile',

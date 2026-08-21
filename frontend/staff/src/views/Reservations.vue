@@ -47,9 +47,9 @@
       <el-table-column label="房型">
         <template #default="{ row }">
           <span v-if="row.rooms && row.rooms.length > 0">
-            <span v-for="(item, idx) in getRoomTypeSummary(row.rooms)" :key="idx" style="margin-right: 4px;">
-              {{ item.count }}间{{ item.name }}{{ idx < getRoomTypeSummary(row.rooms).length - 1 ? '、' : '' }}
-            </span>
+            <template v-for="(item, idx) in getRoomTypeSummary(row.rooms)" :key="idx">
+              <span>{{ item.count }}间{{ item.name }}</span><template v-if="idx < getRoomTypeSummary(row.rooms).length - 1">、<br/></template>
+            </template>
           </span>
           <span v-else>-</span>
         </template>
@@ -249,6 +249,12 @@
             房间 {{ rIndex + 1 }}：
             <span class="room-info">{{ roomCheckIn.roomNumber || '未分配' }} - {{ roomCheckIn.roomTypeName || '' }}</span>
             <span class="room-capacity">(成人 {{ roomCheckIn.adults }} / 儿童 {{ roomCheckIn.children }}，共 {{ roomCheckIn.totalGuests }} 人)</span>
+            <el-checkbox
+              v-if="currentReservation && currentReservation.guestName"
+              v-model="roomCheckIn.selfCheckIn"
+              @change="toggleSelfCheckIn(rIndex, roomCheckIn.selfCheckIn)"
+              style="margin-left: 15px"
+            >本人入住（预订人自动作为主登记人）</el-checkbox>
           </div>
 
           <el-divider content-position="left">主登记人信息</el-divider>
@@ -458,7 +464,6 @@ const loadReservations = async () => {
     const res = await getReservations(hotelId)
     if (res.code === 200) {
       let data = res.data || []
-      data = data.filter(r => r.status === 'pending' || r.status === 'confirmed')
       if (searchForm.status) {
         data = data.filter(r => r.status === searchForm.status)
       }
@@ -501,7 +506,6 @@ const handleSearch = async () => {
       if (hotelId) {
         data = data.filter(r => r.hotelId === hotelId)
       }
-      data = data.filter(r => r.status === 'pending' || r.status === 'confirmed')
       if (searchForm.status) {
         data = data.filter(r => r.status === searchForm.status)
       }
@@ -560,10 +564,18 @@ const handleRoomTypeChange = async (roomTypeId) => {
   try {
     const res = await getRoomsByType(roomTypeId)
     if (res.code === 200) {
-      availableRooms.value = res.data.filter(r => r.status === 'vacant')
+      let rooms = res.data.filter(r => r.status === 'vacant')
+      // 排除已在本预订中分配的房间
+      if (currentReservation.value?.rooms) {
+        const assignedRoomNumbers = currentReservation.value.rooms
+          .filter(r => r.roomNumber)
+          .map(r => r.roomNumber)
+        rooms = rooms.filter(r => !assignedRoomNumbers.includes(r.roomNumber))
+      }
+      availableRooms.value = rooms
       selectedRoomId.value = null
       if (availableRooms.value.length === 0) {
-        ElMessage.warning('该房型当前没有空闲房间')
+        ElMessage.warning('该房型当前没有可分配的空闲房间')
       }
     } else {
       ElMessage.error(res.message || '获取房间列表失败')
@@ -714,6 +726,7 @@ const handleCheckIn = async (row) => {
           primaryIdType: 'id_card',
           primaryIdNumber: '',
           primaryPhone: '',
+          selfCheckIn: false,
           stayGuests: []
         }
       })
@@ -723,6 +736,25 @@ const handleCheckIn = async (row) => {
     }
   } catch (error) {
     ElMessage.error('获取预订详情失败')
+  }
+}
+
+const toggleSelfCheckIn = (roomIndex, checked) => {
+  const room = roomCheckInForms.value[roomIndex]
+  if (!room) return
+  const reservation = currentReservation.value
+  if (!reservation) return
+
+  if (checked) {
+    room.primaryGuestName = reservation.guestName || ''
+    room.primaryIdType = reservation.guestIdType || 'id_card'
+    room.primaryIdNumber = reservation.guestIdNumber || ''
+    room.primaryPhone = reservation.guestPhone || ''
+  } else {
+    room.primaryGuestName = ''
+    room.primaryIdType = 'id_card'
+    room.primaryIdNumber = ''
+    room.primaryPhone = ''
   }
 }
 
@@ -816,7 +848,8 @@ const confirmCheckIn = async () => {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(error?.response?.data?.message || '办理入住失败')
+      const errorMsg = error?.message || error?.response?.data?.message || '办理入住失败'
+      ElMessage.error(errorMsg)
     }
   }
 }

@@ -51,7 +51,7 @@ const handleLogout = () => {
         </nav>
         <div class="auth">
           <template v-if="state.isLoggedIn">
-            <span class="welcome">欢迎, {{ fullName }}</span>
+            <span class="welcome">欢迎，{{ fullName }}</span>
             <button class="logout-btn" @click="handleLogout">退出登录</button>
           </template>
           <template v-else>

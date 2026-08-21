@@ -13,6 +13,10 @@ public class ReservationResponse {
     private Integer id;
     private Integer guestId;
     private String guestName;
+    private String guestPhone;
+    private String guestEmail;
+    private String guestIdType;
+    private String guestIdNumber;
     private Integer hotelId;
     private String hotelName;
     private LocalDateTime bookingDate;
@@ -47,6 +51,38 @@ public class ReservationResponse {
 
     public void setGuestName(String guestName) {
         this.guestName = guestName;
+    }
+
+    public String getGuestPhone() {
+        return guestPhone;
+    }
+
+    public void setGuestPhone(String guestPhone) {
+        this.guestPhone = guestPhone;
+    }
+
+    public String getGuestEmail() {
+        return guestEmail;
+    }
+
+    public void setGuestEmail(String guestEmail) {
+        this.guestEmail = guestEmail;
+    }
+
+    public String getGuestIdType() {
+        return guestIdType;
+    }
+
+    public void setGuestIdType(String guestIdType) {
+        this.guestIdType = guestIdType;
+    }
+
+    public String getGuestIdNumber() {
+        return guestIdNumber;
+    }
+
+    public void setGuestIdNumber(String guestIdNumber) {
+        this.guestIdNumber = guestIdNumber;
     }
 
     public Integer getHotelId() {

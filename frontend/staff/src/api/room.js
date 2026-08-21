@@ -12,6 +12,10 @@ export const createRoom = (data) => {
   return request.post('/rooms', data)
 }
 
+export const batchCreateRooms = (data) => {
+  return request.post('/rooms/batch', data)
+}
+
 export const updateRoom = (id, data) => {
   return request.put(`/rooms/${id}`, data)
 }

@@ -71,8 +71,71 @@ public class RoomController {
                 return ResponseResult.error(403, "无权创建其他酒店的房间");
             }
         }
+        room.setStatus("vacant");
         Room saved = roomService.save(room);
         return ResponseResult.success("创建成功", roomService.convertToDTO(saved));
+    }
+
+    @Operation(summary = "批量新增房间", description = "根据起始房间号和数量批量创建房间")
+    @PostMapping("/batch")
+    public ResponseResult<List<Map<String, Object>>> batchCreate(
+            @RequestBody Map<String, Object> requestBody,
+            HttpServletRequest request) {
+        Employee employee = (Employee) request.getAttribute("employee");
+
+        Integer hotelId = (Integer) requestBody.get("hotelId");
+        Integer roomTypeId = (Integer) requestBody.get("roomTypeId");
+        String startRoomNumber = (String) requestBody.get("startRoomNumber");
+        Integer count = (Integer) requestBody.get("count");
+        Integer floor = (Integer) requestBody.get("floor");
+        String notes = (String) requestBody.getOrDefault("notes", "");
+
+        if (hotelId == null || roomTypeId == null || startRoomNumber == null || count == null || count <= 0) {
+            return ResponseResult.error(400, "缺少必要参数：hotelId、roomTypeId、startRoomNumber、count");
+        }
+        if (count > 200) {
+            return ResponseResult.error(400, "单次批量添加不能超过200个房间");
+        }
+        if (!dataIsolationService.isGroupAdmin(employee)) {
+            Integer accessibleHotelId = dataIsolationService.getAccessibleHotelId(employee);
+            if (!accessibleHotelId.equals(hotelId)) {
+                return ResponseResult.error(403, "无权创建其他酒店的房间");
+            }
+        }
+
+        List<Map<String, Object>> createdRooms = new java.util.ArrayList<>();
+        int successCount = 0;
+        StringBuilder failedNumbers = new StringBuilder();
+
+        try {
+            int baseNumber = Integer.parseInt(startRoomNumber);
+            for (int i = 0; i < count; i++) {
+                String roomNumber = String.valueOf(baseNumber + i);
+                if (roomService.findByRoomNumber(roomNumber).isPresent()) {
+                    if (failedNumbers.length() > 0) failedNumbers.append(", ");
+                    failedNumbers.append(roomNumber);
+                    continue;
+                }
+                Room room = new Room();
+                room.setHotelId(hotelId);
+                room.setRoomNumber(roomNumber);
+                room.setFloor(floor != null ? floor : 1);
+                room.setRoomTypeId(roomTypeId);
+                room.setStatus("vacant");
+                room.setNotes(notes);
+                Room saved = roomService.save(room);
+                createdRooms.add(roomService.convertToDTO(saved));
+                successCount++;
+            }
+        } catch (NumberFormatException e) {
+            return ResponseResult.error(400, "起始房间号必须是数字");
+        }
+
+        String message = String.format("成功创建 %d 个房间", successCount);
+        if (failedNumbers.length() > 0) {
+            message += "，以下房间号已存在跳过：" + failedNumbers;
+        }
+        return ResponseResult.success(message, createdRooms);
     }
 
     @Operation(summary = "更新房间信息", description = "根据房间ID更新房间信息，不存在则返回404")

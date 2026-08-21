@@ -55,6 +55,21 @@ const goToReservation = () => {
     router.push(`/reservation?hotelId=${hotel.value.id}`)
   }
 }
+
+const bookRoomType = (roomType) => {
+  if (!roomType) return
+  const isLoggedIn = localStorage.getItem('token')
+  const query = {
+    hotelId: hotel.value.id,
+    roomTypeId: roomType.id
+  }
+  if (!isLoggedIn) {
+    ElMessage.warning('请先登录或注册')
+    router.push({ path: '/login', query: { redirect: '/reservation', ...query } })
+  } else {
+    router.push({ path: '/reservation', query })
+  }
+}
 </script>
 
 <template>
@@ -89,9 +104,11 @@ const goToReservation = () => {
           <h3>房型列表</h3>
           <div class="room-type-grid">
             <div 
-              class="room-type-card" 
+              class="room-type-card clickable" 
               v-for="roomType in roomTypes" 
               :key="roomType.id"
+              @click="bookRoomType(roomType)"
+              :title="`点击预订「${roomType.name}」`"
             >
               <div class="room-image">
                 <img :src="roomDefaultImage" :alt="roomType.name" />

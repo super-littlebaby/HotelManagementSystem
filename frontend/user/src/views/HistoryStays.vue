@@ -79,18 +79,21 @@ const formatDateTime = (dateTimeStr) => {
 }
 
 const getHotelName = (checkIn) => {
-  if (checkIn.hotel) return checkIn.hotel.name || checkIn.hotelName || '酒店'
-  return checkIn.hotelName || '酒店'
+  if (checkIn.hotelName) return checkIn.hotelName
+  if (checkIn.hotel) return checkIn.hotel.name || '酒店'
+  return '酒店'
 }
 
 const getRoomNumber = (checkIn) => {
+  if (checkIn.roomNumber) return checkIn.roomNumber
   if (checkIn.room) return checkIn.room.roomNumber || '-'
-  return checkIn.roomNumber || '-'
+  return '-'
 }
 
 const getRoomTypeName = (checkIn) => {
-  if (checkIn.room && checkIn.room.roomType) return checkIn.room.roomType.typeName || '-'
-  return checkIn.roomTypeName || '-'
+  if (checkIn.roomTypeName) return checkIn.roomTypeName
+  if (checkIn.room && checkIn.room.roomType) return checkIn.room.roomType.name || '-'
+  return '-'
 }
 </script>
 

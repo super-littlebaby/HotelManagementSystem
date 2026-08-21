@@ -17,6 +17,7 @@ import com.project.hotelmanagementsystem.repository.RoomRepository;
 import com.project.hotelmanagementsystem.repository.StayGuestRepository;
 import com.project.hotelmanagementsystem.service.CheckInService;
 import com.project.hotelmanagementsystem.service.RoomStatusLogService;
+import com.project.hotelmanagementsystem.util.EncryptionUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,11 +90,14 @@ public class CheckInServiceImpl implements CheckInService {
     @Override
     public CheckIn saveWithStayGuests(CheckIn checkIn, List<StayGuest> stayGuests) {
         if (checkIn.getGuestId() == null && checkIn.getIdNumber() != null && !checkIn.getIdNumber().isEmpty()) {
-            Optional<Guest> existingGuest = guestRepository.findByIdNumber(checkIn.getIdNumber());
+            String encryptedId = EncryptionUtil.encrypt(checkIn.getIdNumber());
+            Optional<Guest> existingGuest = guestRepository.findByIdNumber(encryptedId);
             if (existingGuest.isPresent()) {
                 checkIn.setGuestId(existingGuest.get().getId());
                 if (checkIn.getGuestName() == null || checkIn.getGuestName().isEmpty()) {
-                    checkIn.setGuestName(existingGuest.get().getFirstName() + " " + existingGuest.get().getLastName());
+                    String first = existingGuest.get().getFirstName() != null ? existingGuest.get().getFirstName().trim() : "";
+                    String last = existingGuest.get().getLastName() != null ? existingGuest.get().getLastName().trim() : "";
+                    checkIn.setGuestName((first + last).trim());
                 }
                 if (checkIn.getPhone() == null || checkIn.getPhone().isEmpty()) {
                     checkIn.setPhone(existingGuest.get().getPhone());
@@ -128,7 +133,8 @@ public class CheckInServiceImpl implements CheckInService {
                 sg.setCheckInId(saved.getId());
                 sg.setIsPrimary(false);
                 if (sg.getGuestId() == null && sg.getIdNumber() != null && !sg.getIdNumber().isEmpty()) {
-                    Optional<Guest> existingGuest = guestRepository.findByIdNumber(sg.getIdNumber());
+                    String encryptedId = EncryptionUtil.encrypt(sg.getIdNumber());
+                    Optional<Guest> existingGuest = guestRepository.findByIdNumber(encryptedId);
                     existingGuest.ifPresent(guest -> sg.setGuestId(guest.getId()));
                 }
                 allStayGuests.add(sg);
@@ -204,12 +210,26 @@ public class CheckInServiceImpl implements CheckInService {
 
         BigDecimal additionalCharges = BigDecimal.ZERO;
         BigDecimal depositAmount = BigDecimal.ZERO;
+        List<Map<String, Object>> billItemList = new ArrayList<>();
         if (bill != null) {
             additionalCharges = billItemRepository.sumAmountByBillId(bill.getId());
             if (additionalCharges == null) {
                 additionalCharges = BigDecimal.ZERO;
             }
             depositAmount = bill.getDepositAmount() != null ? bill.getDepositAmount() : BigDecimal.ZERO;
+
+            List<com.project.hotelmanagementsystem.entity.BillItem> items = billItemRepository.findByBillId(bill.getId());
+            for (com.project.hotelmanagementsystem.entity.BillItem item : items) {
+                Map<String, Object> itemMap = new HashMap<>();
+                itemMap.put("id", item.getId());
+                itemMap.put("itemType", item.getItemType());
+                itemMap.put("description", item.getDescription());
+                itemMap.put("quantity", item.getQuantity());
+                itemMap.put("unitPrice", item.getUnitPrice());
+                itemMap.put("amount", item.getAmount());
+                itemMap.put("chargeDate", item.getChargeDate());
+                billItemList.add(itemMap);
+            }
         }
 
         // 总费用 = 房费 + 额外消费
@@ -230,6 +250,7 @@ public class CheckInServiceImpl implements CheckInService {
         result.put("needPay", diff.compareTo(BigDecimal.ZERO) < 0);
         result.put("refundAmount", diff.compareTo(BigDecimal.ZERO) > 0 ? diff : BigDecimal.ZERO);
         result.put("payAmount", diff.compareTo(BigDecimal.ZERO) < 0 ? diff.abs() : BigDecimal.ZERO);
+        result.put("billItems", billItemList);
 
         return result;
     }
@@ -345,17 +366,29 @@ public class CheckInServiceImpl implements CheckInService {
 
         billRepository.save(bill);
 
-        // 更新房间状态为待打扫，并写入状态变更日志
+        // 检查账单是否包含损坏赔偿项目
+        boolean hasDamage = false;
+        if (bill != null && bill.getId() != null) {
+            long damageCount = billItemRepository.findByBillIdAndItemType(bill.getId(), "damage").size();
+            hasDamage = damageCount > 0;
+        }
+
+        // 更新房间状态：如有损坏赔偿则设为维修中，否则设为待打扫
         Room room = roomRepository.findById(checkIn.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("房间不存在: " + checkIn.getRoomId()));
         String oldStatus = room.getStatus();
-        room.setStatus("dirty");
+        String newStatus = hasDamage ? "out_of_order" : "dirty";
+        room.setStatus(newStatus);
         roomRepository.save(room);
 
-        roomStatusLogService.logStatusChange(
-                room.getId(), oldStatus, "dirty", changedBy,
+        String statusNote = hasDamage ?
+                "退房（含损坏赔偿）：入住记录 #" + checkIn.getId()
+                        + (checkIn.getGuestName() != null ? "，客人：" + checkIn.getGuestName() : "") :
                 "退房：入住记录 #" + checkIn.getId()
-                        + (checkIn.getGuestName() != null ? "，客人：" + checkIn.getGuestName() : ""));
+                        + (checkIn.getGuestName() != null ? "，客人：" + checkIn.getGuestName() : "");
+
+        roomStatusLogService.logStatusChange(
+                room.getId(), oldStatus, newStatus, changedBy, statusNote);
 
         return checkInRepository.save(checkIn);
     }

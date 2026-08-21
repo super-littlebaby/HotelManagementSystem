@@ -124,4 +124,10 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Integer> {
      */
     @Query("SELECT c FROM CheckIn c WHERE c.roomId = :roomId AND c.status = :status AND c.hotelId = :hotelId")
     List<CheckIn> findByRoomIdAndStatusAndHotelId(@Param("roomId") Integer roomId, @Param("status") String status, @Param("hotelId") Integer hotelId);
+
+    @Query("SELECT c FROM CheckIn c WHERE c.idNumber = :idNumber AND c.status = :status")
+    List<CheckIn> findByIdNumberAndStatus(@Param("idNumber") String idNumber, @Param("status") String status);
+
+    @Query("SELECT c FROM CheckIn c WHERE c.guestId = :guestId AND c.status = :status")
+    List<CheckIn> findByGuestIdAndStatus(@Param("guestId") Integer guestId, @Param("status") String status);
 }

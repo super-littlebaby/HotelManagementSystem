@@ -57,6 +57,10 @@
             <el-icon><Wallet /></el-icon>
             <span>账单管理</span>
           </el-menu-item>
+          <el-menu-item index="/facility-damage" v-if="hasPermission('facilityDamage')">
+            <el-icon><Warning /></el-icon>
+            <span>设施损坏追责</span>
+          </el-menu-item>
           <el-menu-item index="/profile">
             <el-icon><UserFilled /></el-icon>
             <span>个人中心</span>
@@ -69,7 +73,7 @@
             <el-avatar :size="36" :style="{ backgroundColor: avatarColor }">
               {{ avatarText }}
             </el-avatar>
-            <span class="welcome">欢迎, {{ displayName }}</span>
+            <span class="welcome">欢迎，{{ displayName }}</span>
             <el-button type="primary" @click="handleLogout">退出登录</el-button>
           </div>
         </el-header>
@@ -85,7 +89,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { HomeFilled, User, OfficeBuilding, Grid, Calendar, Key, Wallet, UserFilled, Monitor, Connection, Tickets, ShoppingCart } from '@element-plus/icons-vue'
+import { HomeFilled, User, OfficeBuilding, Grid, Calendar, Key, Wallet, UserFilled, Monitor, Connection, Tickets, ShoppingCart, Warning } from '@element-plus/icons-vue'
 import { state, logout } from './stores/auth'
 
 const route = useRoute()
@@ -111,11 +115,11 @@ const avatarText = computed(() => {
 })
 
 const rolePermissions = {
-  admin: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills'],
-  manager: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills'],
-  front_desk: ['consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills'],
-  housekeeping: ['rooms', 'roomTypes', 'facilities', 'roomTypeFacilities'],
-  finance: ['roomTypes', 'roomTypeFacilities', 'facilities', 'consumableItems', 'checkins', 'bills']
+  admin: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
+  manager: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
+  front_desk: ['consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
+  housekeeping: ['rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'facilityDamage'],
+  finance: ['roomTypes', 'roomTypeFacilities', 'facilities', 'consumableItems', 'checkins', 'bills', 'facilityDamage']
 }
 
 const getRoleLabel = (role) => {

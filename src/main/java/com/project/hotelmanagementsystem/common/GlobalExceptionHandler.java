@@ -61,8 +61,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseResult<Void> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
-        logger.warn("Data integrity violation: {}", ex.getMessage());
-        return ResponseResult.error(400, "数据完整性冲突，操作失败");
+        logger.warn("Data integrity violation: {}", ex.getMessage(), ex);
+        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        if (msg != null && msg.length() > 100) {
+            msg = msg.substring(0, 100);
+        }
+        return ResponseResult.error(400, "数据完整性冲突: " + msg);
     }
 
     /**

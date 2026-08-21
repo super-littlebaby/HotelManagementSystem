@@ -56,9 +56,21 @@
       <el-table-column prop="createdAt" label="创建时间">
         <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="80" fixed="right" align="center">
+      <el-table-column label="操作" width="220" fixed="right" align="center">
         <template #default="{ row }">
           <el-button size="small" @click="viewBill(row)">详情</el-button>
+          <el-button
+            size="small"
+            type="warning"
+            v-if="row.billStatus === 'open' && row.hasDamageItem"
+            @click="handleSettle(row)"
+          >结算</el-button>
+          <el-button
+            size="small"
+            type="danger"
+            v-if="row.billStatus === 'closed'"
+            @click="handleVoid(row)"
+          >作废</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -125,10 +137,10 @@
 
           <el-tab-pane label="收款记录" name="payments">
             <el-table :data="payments" border stripe size="small">
-              <el-table-column prop="paymentType" label="类型" width="100">
+              <el-table-column prop="paymentType" label="类型" width="120">
                 <template #default="{ row }">
-                  <el-tag :type="row.paymentType === 'deposit' ? 'info' : 'primary'" size="small">
-                    {{ row.paymentType === 'deposit' ? '押金' : '补价' }}
+                  <el-tag :type="getPaymentTagType(row)" size="small">
+                    {{ getPaymentTypeLabel(row) }}
                   </el-tag>
                 </template>
               </el-table-column>
@@ -143,6 +155,9 @@
               </el-table-column>
               <el-table-column prop="employeeId" label="操作员" width="80" align="center">
                 <template #default="{ row }">{{ row.employeeId || '-' }}</template>
+              </el-table-column>
+              <el-table-column prop="transactionRef" label="备注" min-width="150">
+                <template #default="{ row }">{{ row.transactionRef || '-' }}</template>
               </el-table-column>
             </el-table>
             <div v-if="payments.length === 0" class="empty-tip">暂无收款记录</div>
@@ -175,6 +190,41 @@
         <el-button @click="showDetailDialog = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showSettleDialog" title="账单结算 - 选择支付方式" width="480px" top="15vh">
+      <div v-if="settleBillData">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="账单ID">{{ settleBillData.id }}</el-descriptions-item>
+          <el-descriptions-item label="房间号">{{ settleBillData.roomNumber || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="客人姓名">{{ settleBillData.guestName || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="结算金额">
+            <span style="color: #f56c6c; font-weight: bold; font-size: 16px">
+              ¥{{ Number(settleBillData.totalAmount || 0).toFixed(2) }}
+            </span>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-form :model="settleForm" label-width="90px" style="margin-top: 20px">
+          <el-form-item label="支付方式" required>
+            <el-radio-group v-model="settleForm.paymentMethod" style="width: 100%">
+              <el-radio value="cash" border style="margin-bottom: 8px">现金</el-radio>
+              <el-radio value="wechat" border style="margin-bottom: 8px">微信</el-radio>
+              <el-radio value="alipay" border style="margin-bottom: 8px">支付宝</el-radio>
+              <el-radio value="credit_card" border style="margin-bottom: 8px">信用卡</el-radio>
+              <el-radio value="debit_card" border style="margin-bottom: 8px">借记卡</el-radio>
+              <el-radio value="bank_transfer" border>银行转账</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <template #footer>
+        <el-button @click="cancelSettle">取消</el-button>
+        <el-button type="warning" :disabled="!settleForm.paymentMethod" @click="confirmSettle">
+          确认结算
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -182,7 +232,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDateTime, formatDate } from '../utils/date'
-import { getBills } from '../api/bill'
+import { getBills, settleBill, voidBill } from '../api/bill'
 import { getBillItems } from '../api/billItem'
 import { getPaymentsByBillId } from '../api/payment'
 import { getRefundsByBillId } from '../api/refund'
@@ -194,6 +244,11 @@ const refunds = ref([])
 const showDetailDialog = ref(false)
 const currentBill = ref(null)
 const activeTab = ref('items')
+const showSettleDialog = ref(false)
+const settleBillData = ref(null)
+const settleForm = reactive({
+  paymentMethod: ''
+})
 
 const filterForm = reactive({
   status: '',
@@ -231,6 +286,24 @@ const getItemTypeLabel = (type) => {
 const getMethodLabel = (method) => {
   const labels = { cash: '现金', credit_card: '信用卡', debit_card: '借记卡', wechat: '微信', alipay: '支付宝', bank_transfer: '银行转账' }
   return labels[method] || method
+}
+
+const getPaymentTypeLabel = (row) => {
+  if (row.paymentType === 'deposit') return '押金'
+  if (row.paymentType === 'charge') {
+    if (row.transactionRef && row.transactionRef.includes('损坏赔偿')) return '损坏赔偿结算'
+    return '补价'
+  }
+  return row.paymentType || ''
+}
+
+const getPaymentTagType = (row) => {
+  if (row.paymentType === 'deposit') return 'info'
+  if (row.paymentType === 'charge') {
+    if (row.transactionRef && row.transactionRef.includes('损坏赔偿')) return 'warning'
+    return 'primary'
+  }
+  return 'primary'
 }
 
 const getRoomCharge = (row) => {
@@ -277,6 +350,63 @@ const viewBill = async (row) => {
     refunds.value = []
   }
   showDetailDialog.value = true
+}
+
+const handleSettle = (row) => {
+  settleBillData.value = row
+  settleForm.paymentMethod = ''
+  showSettleDialog.value = true
+}
+
+const cancelSettle = () => {
+  showSettleDialog.value = false
+  settleBillData.value = null
+}
+
+const confirmSettle = async () => {
+  if (!settleForm.paymentMethod) {
+    ElMessage.warning('请选择支付方式')
+    return
+  }
+  try {
+    const res = await settleBill(
+      settleBillData.value.id,
+      settleForm.paymentMethod
+    )
+    if (res.code === 200) {
+      ElMessage.success(`结算成功，支付方式：${getMethodLabel(settleForm.paymentMethod)}`)
+      showSettleDialog.value = false
+      settleBillData.value = null
+      loadBills()
+    } else {
+      ElMessage.error(res.message || '结算失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '结算失败')
+    }
+  }
+}
+
+const handleVoid = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要作废账单 #${row.id} 吗？作废后账单将失效，此操作不可逆。`,
+      '作废确认',
+      { confirmButtonText: '确定作废', cancelButtonText: '取消', type: 'error' }
+    )
+    const res = await voidBill(row.id)
+    if (res.code === 200) {
+      ElMessage.success('作废成功')
+      loadBills()
+    } else {
+      ElMessage.error(res.message || '作废失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '作废失败')
+    }
+  }
 }
 
 onMounted(() => {

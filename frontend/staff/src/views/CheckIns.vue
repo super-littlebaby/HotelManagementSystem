@@ -109,7 +109,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showCheckOutDialog" title="办理退房 - 费用结算" width="550px">
+    <el-dialog v-model="showCheckOutDialog" title="办理退房 - 费用结算" width="650px">
       <div v-if="checkOutResult">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="实际入住天数">
@@ -130,6 +130,25 @@
             ¥{{ Number(checkOutResult.depositAmount).toFixed(2) }}
           </el-descriptions-item>
         </el-descriptions>
+
+        <div v-if="checkOutResult.billItems && checkOutResult.billItems.length > 0" style="margin-top: 15px">
+          <div style="font-weight: 600; margin-bottom: 8px">消费明细</div>
+          <el-table :data="checkOutResult.billItems" border size="small" style="width: 100%">
+            <el-table-column label="类型" width="90">
+              <template #default="{ row }">
+                <el-tag :type="itemTypeTag(row.itemType)" size="small">{{ itemTypeLabel(row.itemType) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="说明" show-overflow-tooltip />
+            <el-table-column prop="quantity" label="数量" width="70" align="center" />
+            <el-table-column label="单价" width="90" align="right">
+              <template #default="{ row }">¥{{ Number(row.unitPrice).toFixed(2) }}</template>
+            </el-table-column>
+            <el-table-column label="金额" width="90" align="right">
+              <template #default="{ row }">¥{{ Number(row.amount).toFixed(2) }}</template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <el-divider />
 
@@ -208,6 +227,24 @@ const checkOutResult = ref(null)
 const checkOutForm = reactive({
   method: 'cash'
 })
+
+const itemTypeLabel = (t) => ({
+  room_charge: '房费',
+  food: '餐饮',
+  beverage: '饮品',
+  laundry: '洗衣',
+  damage: '损坏赔偿',
+  other: '其他'
+}[t] || t)
+
+const itemTypeTag = (t) => ({
+  room_charge: '',
+  food: 'success',
+  beverage: 'warning',
+  laundry: 'info',
+  damage: 'danger',
+  other: 'info'
+}[t] || '')
 
 const form = reactive({
   guestName: '',

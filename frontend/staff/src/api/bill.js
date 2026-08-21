@@ -19,3 +19,15 @@ export const updateBill = (id, data) => {
 export const deleteBill = (id) => {
   return request.delete(`/bills/${id}`)
 }
+
+export const settleBill = (id, paymentMethod) => {
+  return request.put(`/bills/${id}/settle`, null, { params: { paymentMethod } })
+}
+
+export const voidBill = (id) => {
+  return request.put(`/bills/${id}/void`)
+}
+
+export const getMonthlyClosedRevenue = () => {
+  return request.get('/bills/stats/monthly-revenue')
+}

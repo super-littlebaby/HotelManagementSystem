@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '../api/auth'
 import { login as setLogin } from '../stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const form = ref({
   account: '',
   password: ''
@@ -27,7 +28,15 @@ const handleLogin = async () => {
     if (res.code === 200) {
       setLogin(res.data.token, res.data.guest)
       ElMessage.success('登录成功')
-      router.push('/')
+      // 如果存在 redirect 参数，跳回来源页面并保留附带参数（如 hotelId / roomTypeId）
+      const redirect = route.query.redirect
+      if (redirect && typeof redirect === 'string') {
+        const extra = { ...route.query }
+        delete extra.redirect
+        router.push({ path: redirect, query: Object.keys(extra).length ? extra : undefined })
+      } else {
+        router.push('/')
+      }
     } else {
       ElMessage.error(res.message)
     }

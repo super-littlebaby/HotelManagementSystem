@@ -2,10 +2,22 @@
   <div class="page">
     <div class="page-header">
       <h2>房间管理</h2>
-      <el-button type="primary" @click="showAddDialog = true" :disabled="!canModifyRoom" title="无权添加房间">添加房间</el-button>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <el-select v-model="filterStatus" placeholder="筛选状态" clearable style="width:160px;">
+          <el-option label="空闲" value="vacant" />
+          <el-option label="入住中" value="occupied" />
+          <el-option label="待打扫" value="dirty" />
+          <el-option label="维修中" value="out_of_order" />
+        </el-select>
+        <el-select v-model="filterRoomTypeId" placeholder="筛选房型" clearable style="width:160px;">
+          <el-option v-for="rt in roomTypes" :key="rt.id" :label="rt.name" :value="rt.id" />
+        </el-select>
+        <el-button type="primary" @click="openAddDialog" :disabled="!canModifyRoom" title="无权添加房间">添加房间</el-button>
+        <el-button type="success" @click="openBatchDialog" :disabled="!canModifyRoom" title="无权批量添加">批量添加</el-button>
+      </div>
     </div>
     
-    <el-table :data="rooms" border>
+    <el-table :data="filteredRooms" border>
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="hotelName" label="所属酒店" />
       <el-table-column prop="roomNumber" label="房间号" />
@@ -64,7 +76,7 @@
             <el-option v-for="rt in filteredRoomTypes" :key="rt.id" :label="rt.name" :value="rt.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item v-if="form.id" label="状态">
           <el-select v-model="form.status">
             <el-option label="空闲" value="vacant" />
             <el-option label="入住中" value="occupied" />
@@ -89,6 +101,34 @@
         <el-button type="primary" @click="saveRoom">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showBatchDialog" title="批量添加房间" width="520px">
+      <el-form :model="batchForm" label-width="90px">
+        <HotelSelect v-model="batchForm.hotelId" label="所属酒店" :required="true" @change="onBatchHotelChange" />
+        <el-form-item label="房型" required>
+          <el-select v-model="batchForm.roomTypeId">
+            <el-option v-for="rt in batchFilteredRoomTypes" :key="rt.id" :label="rt.name" :value="rt.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="起始房间号" required>
+          <el-input v-model="batchForm.startRoomNumber" placeholder="如 1001" />
+        </el-form-item>
+        <el-form-item label="数量" required>
+          <el-input-number v-model="batchForm.count" :min="1" :max="200" controls-position="right" />
+          <span style="margin-left:8px;color:#909399;">共 {{ batchForm.count }} 个房间</span>
+        </el-form-item>
+        <el-form-item label="楼层">
+          <el-input-number v-model="batchForm.floor" :min="1" :max="99" controls-position="right" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="batchForm.notes" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showBatchDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveBatchRooms" :loading="batchLoading">确认创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -96,7 +136,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight } from '@element-plus/icons-vue'
-import { getRooms, createRoom, updateRoom, updateRoomStatus, deleteRoom as deleteRoomApi } from '../api/room'
+import { getRooms, createRoom, batchCreateRooms, updateRoom, updateRoomStatus, deleteRoom as deleteRoomApi } from '../api/room'
 import { getRoomTypes } from '../api/roomType'
 import { getHotels } from '../api/hotel'
 import { getRoomStatusLogsByRoomId } from '../api/roomStatusLog'
@@ -111,6 +151,16 @@ const showLogDrawer = ref(false)
 const currentLogRoom = ref(null)
 const roomLogs = ref([])
 const loadingLogs = ref(false)
+const filterStatus = ref('')
+const filterRoomTypeId = ref('')
+
+const filteredRooms = computed(() => {
+  return rooms.value.filter(r => {
+    if (filterStatus.value && r.status !== filterStatus.value) return false
+    if (filterRoomTypeId.value && r.roomTypeId !== filterRoomTypeId.value) return false
+    return true
+  })
+})
 
 const currentRole = computed(() => authState.staff?.role || '')
 
@@ -192,6 +242,21 @@ const onHotelChange = () => {
   form.roomTypeId = null
 }
 
+const openAddDialog = () => {
+  Object.assign(form, {
+    id: null,
+    hotelId: authState.staff?.hotelId ?? null,
+    roomNumber: '',
+    floor: 1,
+    roomTypeId: null,
+    status: 'vacant',
+    notes: '',
+    originalStatus: null,
+    statusChangeNote: ''
+  })
+  showAddDialog.value = true
+}
+
 const editRoom = (row) => {
   Object.assign(form, {
     id: row.id,
@@ -231,7 +296,7 @@ const saveRoom = async () => {
       await updateRoom(form.id, form)
       ElMessage.success('更新成功')
     } else {
-      await createRoom(form)
+      await createRoom({ ...form, status: 'vacant' })
       ElMessage.success('创建成功')
     }
     showAddDialog.value = false
@@ -277,6 +342,74 @@ const openLogDrawer = async (row) => {
     ElMessage.error('加载状态日志失败')
   } finally {
     loadingLogs.value = false
+  }
+}
+
+const showBatchDialog = ref(false)
+const batchLoading = ref(false)
+
+const batchForm = reactive({
+  hotelId: authState.staff?.hotelId ?? null,
+  startRoomNumber: '',
+  count: 10,
+  floor: 1,
+  roomTypeId: null,
+  notes: ''
+})
+
+const batchFilteredRoomTypes = computed(() => {
+  if (!batchForm.hotelId) return roomTypes.value
+  return roomTypes.value.filter(rt => rt.hotelId === batchForm.hotelId)
+})
+
+const onBatchHotelChange = () => {
+  batchForm.roomTypeId = null
+}
+
+const openBatchDialog = () => {
+  batchForm.hotelId = authState.staff?.hotelId ?? null
+  batchForm.startRoomNumber = ''
+  batchForm.count = 10
+  batchForm.floor = 1
+  batchForm.roomTypeId = null
+  batchForm.notes = ''
+  showBatchDialog.value = true
+}
+
+const saveBatchRooms = async () => {
+  if (!batchForm.hotelId || !batchForm.roomTypeId || !batchForm.startRoomNumber) {
+    ElMessage.warning('请填写所属酒店、房型和起始房间号')
+    return
+  }
+  const num = parseInt(batchForm.startRoomNumber, 10)
+  if (isNaN(num) || String(num) !== batchForm.startRoomNumber.trim()) {
+    ElMessage.warning('起始房间号必须是整数')
+    return
+  }
+  if (!batchForm.count || batchForm.count <= 0) {
+    ElMessage.warning('数量必须大于0')
+    return
+  }
+
+  batchLoading.value = true
+  try {
+    const response = await batchCreateRooms({
+      hotelId: batchForm.hotelId,
+      roomTypeId: batchForm.roomTypeId,
+      startRoomNumber: batchForm.startRoomNumber.trim(),
+      count: batchForm.count,
+      floor: batchForm.floor,
+      status: 'vacant',
+      notes: batchForm.notes
+    })
+    ElMessage.success(response.message || '批量创建成功')
+    showBatchDialog.value = false
+    loadRooms()
+  } catch (error) {
+    const message = error.message || error.response?.data?.message || '批量创建失败'
+    ElMessage.error(message)
+  } finally {
+    batchLoading.value = false
   }
 }
 

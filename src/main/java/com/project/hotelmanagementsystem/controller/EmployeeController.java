@@ -123,10 +123,14 @@ public class EmployeeController {
             }
             String currentRole = currentEmployee.getRole();
             String targetRole = existing.getRole();
-            if (!"manager".equals(currentRole) || !isLowerRole(targetRole, "manager")) {
-                if (!"manager".equals(currentRole) || "manager".equals(targetRole)) {
+            if ("admin".equals(currentRole)) {
+                // 酒店级admin可操作本酒店所有非admin员工
+            } else if ("manager".equals(currentRole)) {
+                if (!isLowerRole(targetRole, "manager")) {
                     return ResponseResult.error(403, "无权修改同级或更高权限的员工");
                 }
+            } else {
+                return ResponseResult.error(403, "无权修改员工信息");
             }
         }
         if ("admin".equals(existing.getRole()) && employee.getIsActive() != null && !employee.getIsActive()) {
@@ -167,10 +171,14 @@ public class EmployeeController {
             }
             String currentRole = currentEmployee.getRole();
             String targetRole = employee.getRole();
-            if (!"manager".equals(currentRole) || !isLowerRole(targetRole, "manager")) {
-                if (!"manager".equals(currentRole) || "manager".equals(targetRole)) {
+            if ("admin".equals(currentRole)) {
+                // 酒店级admin可操作本酒店所有非admin员工
+            } else if ("manager".equals(currentRole)) {
+                if (!isLowerRole(targetRole, "manager")) {
                     return ResponseResult.error(403, "无权修改同级或更高权限员工的状态");
                 }
+            } else {
+                return ResponseResult.error(403, "无权修改员工状态");
             }
         }
 
@@ -203,10 +211,14 @@ public class EmployeeController {
             }
             String currentRole = currentEmployee.getRole();
             String targetRole = employee.getRole();
-            if (!"manager".equals(currentRole) || !isLowerRole(targetRole, "manager")) {
-                if (!"manager".equals(currentRole) || "manager".equals(targetRole)) {
+            if ("admin".equals(currentRole)) {
+                // 酒店级admin可操作本酒店所有非admin员工
+            } else if ("manager".equals(currentRole)) {
+                if (!isLowerRole(targetRole, "manager")) {
                     return ResponseResult.error(403, "无权删除同级或更高权限的员工");
                 }
+            } else {
+                return ResponseResult.error(403, "无权删除员工");
             }
         }
         employeeService.deleteById(id);

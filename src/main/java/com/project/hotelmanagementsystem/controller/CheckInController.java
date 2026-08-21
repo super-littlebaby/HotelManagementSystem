@@ -4,11 +4,13 @@ import com.project.hotelmanagementsystem.common.ResponseResult;
 import com.project.hotelmanagementsystem.entity.Bill;
 import com.project.hotelmanagementsystem.entity.CheckIn;
 import com.project.hotelmanagementsystem.entity.Employee;
+import com.project.hotelmanagementsystem.entity.Hotel;
 import com.project.hotelmanagementsystem.entity.Payment;
 import com.project.hotelmanagementsystem.entity.Room;
 import com.project.hotelmanagementsystem.entity.RoomType;
 import com.project.hotelmanagementsystem.repository.BillRepository;
 import com.project.hotelmanagementsystem.repository.CheckInRepository;
+import com.project.hotelmanagementsystem.repository.HotelRepository;
 import com.project.hotelmanagementsystem.repository.PaymentRepository;
 import com.project.hotelmanagementsystem.repository.RoomRepository;
 import com.project.hotelmanagementsystem.repository.RoomTypeRepository;
@@ -18,7 +20,11 @@ import com.project.hotelmanagementsystem.service.RoomStatusLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +32,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * 入住登记控制层
@@ -44,6 +52,7 @@ public class CheckInController {
     private final CheckInRepository checkInRepository;
     private final RoomRepository roomRepository;
     private final RoomTypeRepository roomTypeRepository;
+    private final HotelRepository hotelRepository;
     private final DataIsolationService dataIsolationService;
     private final RoomStatusLogService roomStatusLogService;
     private final BillRepository billRepository;
@@ -63,6 +72,7 @@ public class CheckInController {
      */
     public CheckInController(CheckInService checkInService, CheckInRepository checkInRepository,
                              RoomRepository roomRepository, RoomTypeRepository roomTypeRepository,
+                             HotelRepository hotelRepository,
                              DataIsolationService dataIsolationService,
                              RoomStatusLogService roomStatusLogService,
                              BillRepository billRepository,
@@ -71,6 +81,7 @@ public class CheckInController {
         this.checkInRepository = checkInRepository;
         this.roomRepository = roomRepository;
         this.roomTypeRepository = roomTypeRepository;
+        this.hotelRepository = hotelRepository;
         this.dataIsolationService = dataIsolationService;
         this.roomStatusLogService = roomStatusLogService;
         this.billRepository = billRepository;
@@ -93,6 +104,7 @@ public class CheckInController {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
             checkIns = checkInRepository.findAllByHotelId(hotelId);
         }
+        decorateCheckIns(checkIns);
         return ResponseResult.success(checkIns);
     }
 
@@ -119,6 +131,7 @@ public class CheckInController {
                 return ResponseResult.error(403, "无权访问该入住记录");
             }
         }
+        decorateCheckIn(checkIn);
         return ResponseResult.success(checkIn);
     }
 
@@ -323,6 +336,7 @@ public class CheckInController {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
             checkIns = checkInRepository.findByGuestIdAndHotelId(guestId, hotelId);
         }
+        decorateCheckIns(checkIns);
         return ResponseResult.success(checkIns);
     }
 
@@ -345,6 +359,7 @@ public class CheckInController {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
             checkIns = checkInRepository.findByRoomIdAndHotelId(roomId, hotelId);
         }
+        decorateCheckIns(checkIns);
         return ResponseResult.success(checkIns);
     }
 
@@ -367,6 +382,7 @@ public class CheckInController {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
             checkIns = checkInRepository.findByStatusAndHotelId(status, hotelId);
         }
+        decorateCheckIns(checkIns);
         return ResponseResult.success(checkIns);
     }
 
@@ -389,6 +405,7 @@ public class CheckInController {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
             checkIns = checkInRepository.findByReservationIdAndHotelId(reservationId, hotelId);
         }
+        decorateCheckIns(checkIns);
         return ResponseResult.success(checkIns);
     }
 
@@ -413,6 +430,7 @@ public class CheckInController {
             Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
             checkIns = checkInRepository.findByRoomIdAndStatusAndHotelId(roomId, status, hotelId);
         }
+        decorateCheckIns(checkIns);
         return ResponseResult.success(checkIns);
     }
 
@@ -487,11 +505,139 @@ public class CheckInController {
                 refundMethod = requestBody.get("refundMethod");
             }
             CheckIn checkIn = checkInService.checkOut(id, changedBy, paymentMethod, refundMethod);
+            decorateCheckIn(checkIn);
             return ResponseResult.success("退房成功", checkIn);
         } catch (IllegalArgumentException e) {
             return ResponseResult.error(404, e.getMessage());
         } catch (IllegalStateException e) {
             return ResponseResult.error(400, e.getMessage());
+        }
+    }
+
+    /**
+     * 为单条入住记录填充展示字段（房型名称、酒店名称、房间号）
+     */
+    private void decorateCheckIn(CheckIn checkIn) {
+        if (checkIn == null) {
+            return;
+        }
+        decorateCheckIns(Collections.singletonList(checkIn));
+    }
+
+    /**
+     * 批量为入住记录填充展示字段（房型名称、酒店名称、房间号）
+     * <p>
+     * 采用批量查询避免 N+1 问题。
+     * 优先使用 CheckIn 已加载的 Room 嵌套对象获取 roomTypeId/hotelId/roomNumber，
+     * 缺失时按 checkIn.roomId 再次从 RoomRepository 拉取。
+     * </p>
+     */
+    private void decorateCheckIns(List<CheckIn> checkIns) {
+        if (checkIns == null || checkIns.isEmpty()) {
+            return;
+        }
+
+        // 第一阶段：从 CheckIn.room（EAGER 加载）或 roomId 补查，收集 roomTypeId/hotelId/roomNumber
+        Map<Integer, Integer> checkInRoomTypeIdMap = new HashMap<>();
+        Map<Integer, Integer> checkInHotelIdMap = new HashMap<>();
+        Map<Integer, String> checkInRoomNumberMap = new HashMap<>();
+        Set<Integer> missingRoomIds = new HashSet<>();
+
+        for (CheckIn c : checkIns) {
+            if (c.getId() == null) {
+                continue;
+            }
+            Room r = c.getRoom();
+            if (r == null && c.getRoomId() != null) {
+                missingRoomIds.add(c.getRoomId());
+            }
+            if (r != null) {
+                if (r.getRoomTypeId() != null) {
+                    checkInRoomTypeIdMap.put(c.getId(), r.getRoomTypeId());
+                }
+                if (r.getHotelId() != null) {
+                    checkInHotelIdMap.put(c.getId(), r.getHotelId());
+                } else if (c.getHotelId() != null) {
+                    checkInHotelIdMap.put(c.getId(), c.getHotelId());
+                }
+                if (r.getRoomNumber() != null) {
+                    checkInRoomNumberMap.put(c.getId(), r.getRoomNumber());
+                }
+            } else {
+                if (c.getHotelId() != null) {
+                    checkInHotelIdMap.put(c.getId(), c.getHotelId());
+                }
+            }
+        }
+
+        // 补查缺失的 Room 基础属性
+        if (!missingRoomIds.isEmpty()) {
+            List<Room> missingRooms = roomRepository.findAllById(missingRoomIds);
+            Map<Integer, Room> missingRoomMap = missingRooms.stream()
+                    .filter(r -> r.getId() != null)
+                    .collect(Collectors.toMap(Room::getId, r -> r, (a, b) -> a));
+            for (CheckIn c : checkIns) {
+                if (c.getId() == null || c.getRoomId() == null) {
+                    continue;
+                }
+                if (!missingRoomMap.containsKey(c.getRoomId())) {
+                    continue;
+                }
+                Room r = missingRoomMap.get(c.getRoomId());
+                if (r.getRoomTypeId() != null) {
+                    checkInRoomTypeIdMap.putIfAbsent(c.getId(), r.getRoomTypeId());
+                }
+                if (r.getHotelId() != null) {
+                    checkInHotelIdMap.putIfAbsent(c.getId(), r.getHotelId());
+                }
+                if (r.getRoomNumber() != null) {
+                    checkInRoomNumberMap.putIfAbsent(c.getId(), r.getRoomNumber());
+                }
+            }
+        }
+
+        // 第二阶段：批量查询 RoomType 名称
+        Map<Integer, String> roomTypeNameMap = new HashMap<>();
+        Set<Integer> roomTypeIds = checkInRoomTypeIdMap.values().stream()
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        if (!roomTypeIds.isEmpty()) {
+            List<RoomType> roomTypes = roomTypeRepository.findAllById(roomTypeIds);
+            for (RoomType rt : roomTypes) {
+                if (rt.getId() != null && rt.getName() != null) {
+                    roomTypeNameMap.put(rt.getId(), rt.getName());
+                }
+            }
+        }
+
+        // 第三阶段：批量查询 Hotel 名称
+        Map<Integer, String> hotelNameMap = new HashMap<>();
+        Set<Integer> hotelIds = checkInHotelIdMap.values().stream()
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        if (!hotelIds.isEmpty()) {
+            List<Hotel> hotels = hotelRepository.findAllById(hotelIds);
+            for (Hotel h : hotels) {
+                if (h.getId() != null && h.getName() != null) {
+                    hotelNameMap.put(h.getId(), h.getName());
+                }
+            }
+        }
+
+        // 第四阶段：回填到 CheckIn 的 @Transient 字段
+        for (CheckIn c : checkIns) {
+            if (c.getId() == null) {
+                continue;
+            }
+            if (c.getRoomNumber() == null) {
+                c.setRoomNumber(checkInRoomNumberMap.get(c.getId()));
+            }
+            if (c.getRoomTypeName() == null) {
+                Integer rtId = checkInRoomTypeIdMap.get(c.getId());
+                c.setRoomTypeName(rtId == null ? null : roomTypeNameMap.get(rtId));
+            }
+            if (c.getHotelName() == null) {
+                Integer hId = checkInHotelIdMap.get(c.getId());
+                c.setHotelName(hId == null ? null : hotelNameMap.get(hId));
+            }
         }
     }
 }

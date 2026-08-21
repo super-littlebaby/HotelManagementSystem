@@ -10,6 +10,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -29,6 +32,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/bills")
 public class BillController {
+
+    private static final Logger logger = LoggerFactory.getLogger(BillController.class);
 
     private final BillService billService;
     private final BillRepository billRepository;
@@ -69,16 +74,18 @@ public class BillController {
         CheckIn checkIn = checkInRepository.findById(bill.getCheckInId()).orElse(null);
         if (checkIn != null) {
             String guestName = null;
-            if (checkIn.getGuestId() != null) {
+            // 优先使用入住登记时记录的客人姓名（check_in.guest_name）
+            if (checkIn.getGuestName() != null && !checkIn.getGuestName().isEmpty()) {
+                guestName = checkIn.getGuestName().trim();
+            }
+            // 回退：通过 guest_id 查询客人档案并拼接姓名（中间不加空格）
+            if ((guestName == null || guestName.isEmpty()) && checkIn.getGuestId() != null) {
                 Guest guest = guestRepository.findById(checkIn.getGuestId()).orElse(null);
                 if (guest != null) {
-                    guestName = (guest.getFirstName() != null ? guest.getFirstName() : "") + " " +
-                            (guest.getLastName() != null ? guest.getLastName() : "");
-                    guestName = guestName.trim();
+                    String first = guest.getFirstName() != null ? guest.getFirstName().trim() : "";
+                    String last = guest.getLastName() != null ? guest.getLastName().trim() : "";
+                    guestName = (first + last).trim();
                 }
-            }
-            if (guestName == null || guestName.isEmpty()) {
-                guestName = checkIn.getGuestName();
             }
             dto.setGuestName(guestName);
 
@@ -104,6 +111,11 @@ public class BillController {
                 additionalCharges = BigDecimal.ZERO;
             }
             dto.setAdditionalCharges(additionalCharges);
+
+            // 检查是否仅包含损坏赔偿明细（且至少有一条）
+            List<BillItem> allItems = billItemRepository.findByBillId(bill.getId());
+            boolean damageOnly = !allItems.isEmpty() && allItems.stream().allMatch(item -> "damage".equals(item.getItemType()));
+            dto.setHasDamageItem(damageOnly);
         }
 
         BigDecimal refundAmount = BigDecimal.ZERO;
@@ -321,5 +333,147 @@ public class BillController {
             return ResponseResult.error(404, "资源不存在");
         }
         return ResponseResult.success(optional.get());
+    }
+
+    /**
+     * 结算账单（仅限包含损坏赔偿明细的账单）
+     *
+     * @param id 账单ID
+     * @param paymentMethod 支付方式：cash/credit_card/debit_card/wechat/alipay/bank_transfer
+     * @return 结算后的账单信息
+     */
+    @Operation(summary = "结算账单", description = "结算包含损坏赔偿明细的账单，选择支付方式并写入收款记录")
+    @PutMapping("/{id}/settle")
+    @Transactional
+    public ResponseResult<Bill> settleBill(
+            @Parameter(description = "账单ID", required = true) @PathVariable Integer id,
+            @Parameter(description = "支付方式：cash现金/credit_card信用卡/debit_card借记卡/wechat微信/alipay支付宝/bank_transfer银行转账", required = true)
+                @RequestParam String paymentMethod,
+            HttpServletRequest request) {
+        java.util.Optional<Bill> optional = billService.findById(id);
+        if (optional.isEmpty()) {
+            return ResponseResult.error(404, "账单不存在");
+        }
+        Bill bill = optional.get();
+
+        // 权限校验
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (employee != null && !dataIsolationService.isGroupAdmin(employee)) {
+            java.util.Optional<Integer> hotelIdOpt = billRepository.findHotelIdByBillId(id);
+            if (hotelIdOpt.isPresent() && !dataIsolationService.canAccessHotel(employee, hotelIdOpt.get())) {
+                return ResponseResult.error(403, "无权操作其他酒店的账单");
+            }
+        }
+
+        // 支付方式校验
+        java.util.Set<String> validMethods = java.util.Set.of(
+                "cash", "credit_card", "debit_card", "wechat", "alipay", "bank_transfer");
+        if (paymentMethod == null || !validMethods.contains(paymentMethod)) {
+            return ResponseResult.error(400, "无效的支付方式，可选值：cash/credit_card/debit_card/wechat/alipay/bank_transfer");
+        }
+
+        // 状态校验：只有open状态可以结算
+        if (!"open".equals(bill.getBillStatus())) {
+            return ResponseResult.error(400, "只有未结算的账单才能结算");
+        }
+
+        // 业务校验：只有仅包含损坏赔偿明细的账单才能结算
+        List<BillItem> allItems = billItemRepository.findByBillId(id);
+        if (allItems.isEmpty() || !allItems.stream().allMatch(item -> "damage".equals(item.getItemType()))) {
+            return ResponseResult.error(400, "只有设施损坏追责产生的账单才能结算");
+        }
+
+        // 计算赔偿总金额
+        BigDecimal damageTotal = allItems.stream()
+                .map(BillItem::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 更新账单状态和金额
+        bill.setBillStatus("closed");
+        bill.setClosedAt(java.time.LocalDateTime.now());
+        bill.setTotalAmount(damageTotal);
+        bill.setPaidAmount(damageTotal);
+        Bill saved = billRepository.saveAndFlush(bill);
+
+        // 创建收款记录
+        try {
+            Payment payment = new Payment();
+            payment.setBillId(id);
+            payment.setAmount(damageTotal);
+            payment.setPaymentMethod(paymentMethod);
+            payment.setPaymentType("charge");
+            payment.setTransactionRef(null);
+            payment.setPaymentDate(java.time.LocalDateTime.now());
+            if (employee != null) {
+                payment.setEmployeeId(employee.getId());
+            }
+            paymentRepository.saveAndFlush(payment);
+        } catch (Exception e) {
+            logger.error("Failed to create payment record for bill {}", id, e);
+            return ResponseResult.error(500, "结算成功但创建收款记录失败: " + e.getMessage());
+        }
+
+        return ResponseResult.success("结算成功", saved);
+    }
+
+    /**
+     * 作废账单（仅限已结算的账单）
+     *
+     * @param id 账单ID
+     * @return 作废后的账单信息
+     */
+    @Operation(summary = "作废账单", description = "作废已结算的账单，将状态从closed改为void")
+    @PutMapping("/{id}/void")
+    public ResponseResult<Bill> voidBill(
+            @Parameter(description = "账单ID", required = true) @PathVariable Integer id,
+            HttpServletRequest request) {
+        java.util.Optional<Bill> optional = billService.findById(id);
+        if (optional.isEmpty()) {
+            return ResponseResult.error(404, "账单不存在");
+        }
+        Bill bill = optional.get();
+
+        // 权限校验
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (employee != null && !dataIsolationService.isGroupAdmin(employee)) {
+            java.util.Optional<Integer> hotelIdOpt = billRepository.findHotelIdByBillId(id);
+            if (hotelIdOpt.isPresent() && !dataIsolationService.canAccessHotel(employee, hotelIdOpt.get())) {
+                return ResponseResult.error(403, "无权操作其他酒店的账单");
+            }
+        }
+
+        // 状态校验：只有closed状态可以作废
+        if (!"closed".equals(bill.getBillStatus())) {
+            return ResponseResult.error(400, "只有已结算的账单才能作废");
+        }
+
+        bill.setBillStatus("void");
+        Bill saved = billService.save(bill);
+        return ResponseResult.success("作废成功", saved);
+    }
+
+    /**
+     * 首页累计收入：当前月份已结算（closed）账单的 total_amount 汇总
+     * 按当前登录员工权限自动做酒店数据隔离；null hotelId = 集团管理员统计全部酒店
+     *
+     * @return 当月累计收入金额
+     */
+    @Operation(summary = "当月累计收入统计", description = "返回系统当月已结算（closed）账单的收入总额，按员工所属酒店做数据隔离")
+    @GetMapping("/stats/monthly-revenue")
+    public ResponseResult<java.math.BigDecimal> getMonthlyClosedRevenue(HttpServletRequest request) {
+        Employee employee = (Employee) request.getAttribute("employee");
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDateTime startOfMonth = today.withDayOfMonth(1).atStartOfDay();
+        java.time.LocalDateTime startOfNextMonth = today.plusMonths(1).withDayOfMonth(1).atStartOfDay();
+
+        java.math.BigDecimal revenue;
+        if (employee == null || dataIsolationService.isGroupAdmin(employee)) {
+            revenue = billRepository.sumMonthlyClosedRevenue(startOfMonth, startOfNextMonth);
+        } else {
+            Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
+            revenue = billRepository.sumMonthlyClosedRevenueByHotelId(hotelId, startOfMonth, startOfNextMonth);
+        }
+        if (revenue == null) revenue = java.math.BigDecimal.ZERO;
+        return ResponseResult.success(revenue);
     }
 }

@@ -2,10 +2,19 @@
   <div class="page">
     <div class="page-header">
       <h2>员工管理</h2>
-      <el-button type="primary" @click="openAddDialog" :disabled="!canAddEmployee">添加员工</el-button>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <el-select v-model="filterRole" placeholder="筛选角色" clearable style="width:160px;">
+          <el-option label="管理员" value="admin" />
+          <el-option label="经理" value="manager" />
+          <el-option label="前台" value="front_desk" />
+          <el-option label="客房" value="housekeeping" />
+          <el-option label="财务" value="finance" />
+        </el-select>
+        <el-button type="primary" @click="openAddDialog" :disabled="!canAddEmployee">添加员工</el-button>
+      </div>
     </div>
 
-    <el-table :data="employees" border>
+    <el-table :data="filteredEmployees" border>
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="username" label="用户名" />
       <el-table-column prop="firstName" label="名" />
@@ -20,7 +29,7 @@
           <span>{{ getHotelName(row.hotelId) }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="phone" label="电话" />
+      <el-table-column prop="phone" label="电话" width="130" />
       <el-table-column prop="email" label="邮箱" />
       <el-table-column prop="hireDate" label="入职时间" width="120">
         <template #default="{ row }">
@@ -32,7 +41,7 @@
           <el-tag :type="row.isActive ? 'success' : 'danger'">{{ row.isActive ? '在职' : '离职' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="260">
+      <el-table-column label="操作" width="200">
         <template #default="{ row }">
           <el-button size="small" @click="editEmployee(row)" :disabled="!canEditEmployee(row)" title="无权编辑">编辑</el-button>
           <el-button
@@ -55,7 +64,7 @@
           <el-input v-model="form.username" :disabled="!!form.id" />
         </el-form-item>
         <el-form-item v-if="!form.id" label="密码" required>
-          <el-input v-model="form.password" type="password" placeholder="请输入初始密码" />
+          <el-input v-model="form.password" type="password" placeholder="默认密码123456" />
         </el-form-item>
         <el-form-item v-else label="密码">
           <el-input v-model="form.password" type="password" placeholder="留空表示不修改密码" />
@@ -68,11 +77,7 @@
         </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="form.role">
-            <el-option label="管理员" value="admin" />
-            <el-option label="经理" value="manager" />
-            <el-option label="前台" value="front_desk" />
-            <el-option label="客房" value="housekeeping" />
-            <el-option label="财务" value="finance" />
+            <el-option v-for="opt in roleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
         </el-form-item>
         <HotelSelect v-model="form.hotelId" label="所属酒店" :required="false" />
@@ -86,11 +91,11 @@
           <el-input v-model="form.hireDate" disabled placeholder="创建账号时自动记录" />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="form.isActive" :disabled="isGroupAdmin ? false : (form.role === 'admin')">
+          <el-select v-model="form.isActive" :disabled="currentRole === 'admin' ? false : (form.role === 'admin')">
             <el-option label="在职" :value="true" />
             <el-option label="离职" :value="false" />
           </el-select>
-          <span v-if="form.role === 'admin' && !isGroupAdmin" style="color:#909399;font-size:12px;margin-left:8px;">管理员状态不可修改</span>
+          <span v-if="form.role === 'admin' && currentRole !== 'admin'" style="color:#909399;font-size:12px;margin-left:8px;">管理员状态不可修改</span>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -112,6 +117,12 @@ import HotelSelect from '../components/HotelSelect.vue'
 const employees = ref([])
 const hotels = ref([])
 const showAddDialog = ref(false)
+const filterRole = ref('')
+
+const filteredEmployees = computed(() => {
+  if (!filterRole.value) return employees.value
+  return employees.value.filter(e => e.role === filterRole.value)
+})
 
 const roleLevels = {
   admin: 0,
@@ -121,17 +132,31 @@ const roleLevels = {
   finance: 3
 }
 
+const allRoleOptions = [
+  { label: '管理员', value: 'admin' },
+  { label: '经理', value: 'manager' },
+  { label: '前台', value: 'front_desk' },
+  { label: '客房', value: 'housekeeping' },
+  { label: '财务', value: 'finance' }
+]
+
+const roleOptions = computed(() => {
+  if (currentRole.value === 'admin') return allRoleOptions
+  if (currentRole.value === 'manager') {
+    return allRoleOptions.filter(o => o.value !== 'admin')
+  }
+  return []
+})
+
 const currentRole = computed(() => authState.staff?.role || '')
 const currentHotelId = computed(() => authState.staff?.hotelId)
 
-const isGroupAdmin = computed(() => currentRole.value === 'admin' && currentHotelId.value === null)
-
 const canAddEmployee = computed(() => {
-  return isGroupAdmin.value || currentRole.value === 'manager'
+  return currentRole.value === 'admin' || currentRole.value === 'manager'
 })
 
 const canEditEmployee = (row) => {
-  if (isGroupAdmin.value) return true
+  if (currentRole.value === 'admin') return true
   if (row.role === 'admin') return false
   if (currentRole.value !== 'manager') return false
   const currentLevel = roleLevels[currentRole.value] || 99
@@ -140,7 +165,7 @@ const canEditEmployee = (row) => {
 }
 
 const canDeleteEmployee = (row) => {
-  if (isGroupAdmin.value) return true
+  if (currentRole.value === 'admin') return true
   if (row.role === 'admin') return false
   if (currentRole.value !== 'manager') return false
   const currentLevel = roleLevels[currentRole.value] || 99
@@ -149,7 +174,7 @@ const canDeleteEmployee = (row) => {
 }
 
 const canToggleStatus = (row) => {
-  if (isGroupAdmin.value) {
+  if (currentRole.value === 'admin') {
     return !(row.role === 'admin' && row.isActive)
   }
   if (row.role === 'admin') return false
@@ -162,11 +187,11 @@ const canToggleStatus = (row) => {
 const form = reactive({
   id: null,
   username: '',
-  password: '',
+  password: '123456',
   firstName: '',
   lastName: '',
   role: 'front_desk',
-  hotelId: null,
+  hotelId: authState.staff?.hotelId ?? null,
   phone: '',
   email: '',
   isActive: true,
@@ -230,11 +255,11 @@ const resetForm = () => {
   Object.assign(form, {
     id: null,
     username: '',
-    password: '',
+    password: '123456',
     firstName: '',
     lastName: '',
     role: 'front_desk',
-    hotelId: null,
+    hotelId: authState.staff?.hotelId ?? null,
     phone: '',
     email: '',
     isActive: true,
@@ -247,11 +272,11 @@ const openAddDialog = () => {
   Object.assign(form, {
     id: null,
     username: '',
-    password: '',
+    password: '123456',
     firstName: '',
     lastName: '',
     role: 'front_desk',
-    hotelId: null,
+    hotelId: authState.staff?.hotelId ?? null,
     phone: '',
     email: '',
     isActive: true,

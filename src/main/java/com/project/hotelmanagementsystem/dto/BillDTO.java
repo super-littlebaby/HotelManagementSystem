@@ -18,6 +18,15 @@ public class BillDTO {
     private BigDecimal additionalCharges;
     private BigDecimal refundAmount;
     private BigDecimal additionalPaymentAmount;
+    private boolean hasDamageItem;
+
+    public boolean isHasDamageItem() {
+        return hasDamageItem;
+    }
+
+    public void setHasDamageItem(boolean hasDamageItem) {
+        this.hasDamageItem = hasDamageItem;
+    }
 
     public Integer getId() {
         return id;

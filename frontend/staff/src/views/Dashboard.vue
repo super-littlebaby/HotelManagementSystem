@@ -91,6 +91,7 @@ import { getReservations } from '../api/reservation'
 import { getCheckIns } from '../api/checkin'
 import { getHotels, getHotelById } from '../api/hotel'
 import { getRooms, getRoomsByHotel } from '../api/room'
+import { getMonthlyClosedRevenue } from '../api/bill'
 import { state as authState } from '../stores/auth'
 
 const currentHotelId = computed(() => authState.staff?.hotelId || null)
@@ -99,6 +100,7 @@ const currentHotelName = ref(null)
 const stats = reactive({
   hotels: 0,
   rooms: 0,
+  occupiedRooms: 0,
   checkins: 0,
   revenue: '¥0.00'
 })
@@ -169,55 +171,72 @@ const loadData = async () => {
     }
 
     let roomsData = []
-    if (hotelId) {
-      const roomsRes = await getRoomsByHotel(hotelId)
-      if (roomsRes.code === 200) {
-        roomsData = roomsRes.data || []
-        stats.rooms = roomsData.length
+    try {
+      if (hotelId) {
+        const roomsRes = await getRoomsByHotel(hotelId)
+        if (roomsRes.code === 200) {
+          roomsData = roomsRes.data || []
+        }
+      } else {
+        const roomsRes = await getRooms()
+        if (roomsRes.code === 200) {
+          roomsData = roomsRes.data || []
+        }
       }
-    } else {
-      const roomsRes = await getRooms()
-      if (roomsRes.code === 200) {
-        roomsData = roomsRes.data || []
-        stats.rooms = roomsData.length
+    } catch (e) {
+      console.error('加载房间数据失败', e)
+    }
+    stats.rooms = roomsData.length
+    stats.occupiedRooms = roomsData.filter(r => r.status === 'occupied').length
+
+    // 累计收入：独立并行请求，不依赖其他接口
+    try {
+      const revRes = await getMonthlyClosedRevenue()
+      if (revRes.code === 200 && revRes.data != null) {
+        stats.revenue = '¥' + Number(revRes.data).toFixed(2)
+      } else {
+        stats.revenue = '¥0.00'
       }
+    } catch (e) {
+      console.error('加载累计收入失败', e)
+      stats.revenue = '¥0.00'
     }
 
-    const resResponse = await getReservations(hotelId)
-    if (resResponse.code === 200) {
-      let reservations = resResponse.data || []
-      recentReservations.value = reservations.slice(0, 5).map(r => ({
-        id: r.id,
-        guestName: r.guestName || '线下客户',
-        checkInDate: r.checkInDate,
-        checkOutDate: r.checkOutDate,
-        status: r.status
-      }))
-    }
-
-    const checkinResponse = await getCheckIns()
-    if (checkinResponse.code === 200) {
-      const checkins = checkinResponse.data || []
-      const today = new Date().toISOString().split('T')[0]
-      
-      todayCheckIns.value = checkins
-        .filter(c => c.checkInTime?.startsWith(today))
-        .slice(0, 5)
-        .map(c => ({
-          id: c.id,
-          guestName: c.guestName || '线下客户',
-          roomNumber: c.roomId ? `房间${c.roomId}` : '-',
-          checkInTime: c.checkInTime,
-          expectedCheckOut: c.expectedCheckOutTime
+    try {
+      const resResponse = await getReservations(hotelId)
+      if (resResponse.code === 200) {
+        let reservations = resResponse.data || []
+        recentReservations.value = reservations.slice(0, 5).map(r => ({
+          id: r.id,
+          guestName: r.guestName || '线下客户',
+          checkInDate: r.checkInDate,
+          checkOutDate: r.checkOutDate,
+          status: r.status
         }))
+      }
+    } catch (e) {
+      console.error('加载最近预订失败', e)
+    }
 
-      const occupiedRooms = roomsData.filter(r => r.status === 'occupied').length
-      stats.occupiedRooms = occupiedRooms
+    try {
+      const checkinResponse = await getCheckIns()
+      if (checkinResponse.code === 200) {
+        const checkins = checkinResponse.data || []
+        const today = new Date().toISOString().split('T')[0]
 
-      const totalRevenue = checkins
-        .filter(c => c.status === 'checked_out' && c.totalCharge != null)
-        .reduce((sum, c) => sum + Number(c.totalCharge), 0)
-      stats.revenue = '¥' + totalRevenue.toFixed(2)
+        todayCheckIns.value = checkins
+          .filter(c => c.checkInTime?.startsWith(today))
+          .slice(0, 5)
+          .map(c => ({
+            id: c.id,
+            guestName: c.guestName || '线下客户',
+            roomNumber: c.roomId ? `房间${c.roomId}` : '-',
+            checkInTime: c.checkInTime,
+            expectedCheckOut: c.expectedCheckOutTime
+          }))
+      }
+    } catch (e) {
+      console.error('加载今日入住失败', e)
     }
   } catch (error) {
     console.error('加载数据失败', error)

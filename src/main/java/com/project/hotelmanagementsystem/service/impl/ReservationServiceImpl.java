@@ -9,6 +9,7 @@ import com.project.hotelmanagementsystem.dto.reservation.ReservationRoomResponse
 import com.project.hotelmanagementsystem.entity.*;
 import com.project.hotelmanagementsystem.repository.*;
 import com.project.hotelmanagementsystem.service.ReservationService;
+import com.project.hotelmanagementsystem.util.EncryptionUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +19,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -226,6 +230,24 @@ public class ReservationServiceImpl implements ReservationService {
                 throw new IllegalStateException("预订没有房间明细");
             }
 
+            // 检查该房间是否已被本预订的其他房间明细使用
+            boolean alreadyAssignedInThisReservation = rooms.stream()
+                    .anyMatch(rr -> roomId.equals(rr.getRoomId()));
+            if (alreadyAssignedInThisReservation) {
+                throw new IllegalStateException("该房间已分配给本预订中的其他房间明细，不能重复分配");
+            }
+
+            // 检查该房间是否已被其他已确认的预订占用
+            List<ReservationRoom> otherReservationsRooms = reservationRoomRepository.findByRoomId(roomId);
+            for (ReservationRoom other : otherReservationsRooms) {
+                if (!other.getReservationId().equals(id)) {
+                    Reservation otherRes = reservationRepository.findById(other.getReservationId()).orElse(null);
+                    if (otherRes != null && ("confirmed".equals(otherRes.getStatus()) || "checked_in".equals(otherRes.getStatus()))) {
+                        throw new IllegalStateException("该房间已被其他预订占用，无法分配");
+                    }
+                }
+            }
+
             // 分配给第一个未分配房间的明细
             boolean assigned = false;
             for (ReservationRoom rr : rooms) {
@@ -318,6 +340,44 @@ public class ReservationServiceImpl implements ReservationService {
             }
         }
 
+        // ====== 校验阶段：收集所有入住人信息并做重复/在住检查 ======
+        Set<String> allIdNumbers = new HashSet<>();
+
+        for (ReservationRoom rr : rooms) {
+            if (rr.getRoomId() == null) continue;
+            CheckInReservationRequest.RoomCheckInRequest roomCheckIn = roomCheckInMap.get(rr.getId());
+            if (roomCheckIn == null) continue;
+
+            // 主登记人
+            String primaryIdNum = roomCheckIn.getPrimaryIdNumber();
+            if (primaryIdNum != null && !primaryIdNum.trim().isEmpty()) {
+                if (!allIdNumbers.add(primaryIdNum.trim())) {
+                    throw new IllegalStateException("证件号 " + primaryIdNum + " 在本次入住中重复填写");
+                }
+                // 检查是否已在住
+                List<CheckIn> inHouse = checkInRepository.findByIdNumberAndStatus(primaryIdNum.trim(), "in_house");
+                if (!inHouse.isEmpty()) {
+                    throw new IllegalStateException("证件号 " + primaryIdNum + " 的客人已在住中，不能重复入住");
+                }
+            }
+
+            // 同住人员
+            if (roomCheckIn.getStayGuests() != null) {
+                for (CreateCheckInRequest.StayGuestRequest sg : roomCheckIn.getStayGuests()) {
+                    if (sg == null || sg.getIdNumber() == null || sg.getIdNumber().trim().isEmpty()) continue;
+                    String sgIdNum = sg.getIdNumber().trim();
+                    if (!allIdNumbers.add(sgIdNum)) {
+                        throw new IllegalStateException("证件号 " + sgIdNum + " 在本次入住中重复填写");
+                    }
+                    List<CheckIn> inHouse = checkInRepository.findByIdNumberAndStatus(sgIdNum, "in_house");
+                    if (!inHouse.isEmpty()) {
+                        throw new IllegalStateException("证件号 " + sgIdNum + " 的客人已在住中，不能重复入住");
+                    }
+                }
+            }
+        }
+        // ====== 校验结束 ======
+
         // 为每个房间创建入住记录
         for (ReservationRoom rr : rooms) {
             if (rr.getRoomId() == null) {
@@ -341,9 +401,15 @@ public class ReservationServiceImpl implements ReservationService {
                 primaryIdNumber = roomCheckIn.getPrimaryIdNumber();
                 primaryPhone = roomCheckIn.getPrimaryPhone();
 
-                // 如果证件号能在 guests 表匹配到，则设置 guest_id
+                // 优先使用预订本身的 guestId（本人入住场景）
+                if (reservation.getGuestId() != null) {
+                    primaryGuestId = reservation.getGuestId();
+                }
+
+                // 再尝试按证件号匹配 guests 表中的档案
                 if (primaryIdNumber != null && !primaryIdNumber.isEmpty()) {
-                    Optional<Guest> matchedGuest = guestRepository.findByIdNumber(primaryIdNumber);
+                    String encryptedId = EncryptionUtil.encrypt(primaryIdNumber);
+                    Optional<Guest> matchedGuest = guestRepository.findByIdNumber(encryptedId);
                     if (matchedGuest.isPresent()) {
                         primaryGuestId = matchedGuest.get().getId();
                     }
@@ -397,11 +463,18 @@ public class ReservationServiceImpl implements ReservationService {
                     }
                     StayGuest sg = new StayGuest();
                     sg.setCheckInId(savedCheckIn.getId());
-                    sg.setGuestId(primaryGuestId);
                     sg.setName(req.getName());
                     sg.setIdType(req.getIdType());
                     sg.setIdNumber(req.getIdNumber());
                     sg.setIsPrimary(false);
+
+                    // 为同住人员查找对应的 guest_id
+                    if (req.getIdNumber() != null && !req.getIdNumber().isEmpty()) {
+                        String encryptedId = EncryptionUtil.encrypt(req.getIdNumber());
+                        guestRepository.findByIdNumber(encryptedId)
+                                .ifPresent(g -> sg.setGuestId(g.getId()));
+                    }
+
                     stayGuestList.add(sg);
                 }
             }
@@ -503,6 +576,24 @@ public class ReservationServiceImpl implements ReservationService {
         List<ReservationRoom> rooms = reservationRoomRepository.findByReservationId(id);
         if (rooms.isEmpty()) {
             throw new IllegalStateException("预订没有房间明细");
+        }
+
+        // 检查该房间是否已被本预订的其他房间明细使用
+        boolean alreadyAssignedInThisReservation = rooms.stream()
+                .anyMatch(rr -> roomId.equals(rr.getRoomId()));
+        if (alreadyAssignedInThisReservation) {
+            throw new IllegalStateException("该房间已分配给本预订中的其他房间明细，不能重复分配");
+        }
+
+        // 检查该房间是否已被其他已确认的预订占用
+        List<ReservationRoom> otherReservationsRooms = reservationRoomRepository.findByRoomId(roomId);
+        for (ReservationRoom other : otherReservationsRooms) {
+            if (!other.getReservationId().equals(id)) {
+                Reservation otherRes = reservationRepository.findById(other.getReservationId()).orElse(null);
+                if (otherRes != null && ("confirmed".equals(otherRes.getStatus()) || "checked_in".equals(otherRes.getStatus()))) {
+                    throw new IllegalStateException("该房间已被其他预订占用，无法分配");
+                }
+            }
         }
 
         // 如果更换了房型，需要更新房间明细的房型和价格
@@ -622,6 +713,8 @@ public class ReservationServiceImpl implements ReservationService {
             reservations = reservationRepository.findAll();
         }
         return reservations.stream()
+                .sorted(Comparator.comparing(Reservation::getBookingDate,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
@@ -646,11 +739,15 @@ public class ReservationServiceImpl implements ReservationService {
         response.setEmployeeId(reservation.getEmployeeId());
         response.setChannel(reservation.getChannel());
 
-        // 加载客人姓名
+        // 加载客人姓名、手机、邮箱、证件
         if (reservation.getGuestId() != null) {
-            guestRepository.findById(reservation.getGuestId()).ifPresent(guest ->
-                    response.setGuestName(guest.getFirstName() + guest.getLastName())
-            );
+            guestRepository.findById(reservation.getGuestId()).ifPresent(guest -> {
+                response.setGuestName(guest.getFirstName() + guest.getLastName());
+                response.setGuestPhone(guest.getPhone());
+                response.setGuestEmail(guest.getEmail());
+                response.setGuestIdType(guest.getIdType());
+                response.setGuestIdNumber(EncryptionUtil.decrypt(guest.getIdNumber()));
+            });
         }
 
         // 加载酒店名称

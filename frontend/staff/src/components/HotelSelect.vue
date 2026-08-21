@@ -57,7 +57,7 @@ const displayName = ref('')
 const currentRole = computed(() => authState.staff?.role || '')
 const currentHotelId = computed(() => authState.staff?.hotelId)
 
-const isAdmin = computed(() => currentRole.value === 'admin')
+const isAdmin = computed(() => currentRole.value === 'admin' && currentHotelId.value === null)
 const hasHotel = computed(() => currentHotelId.value !== null && currentHotelId.value !== undefined)
 
 const initHotelList = async () => {
