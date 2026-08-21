@@ -15,3 +15,7 @@ export const getGuestInfo = () => {
 export const updateGuest = (data) => {
   return request.put('/guests/update', data)
 }
+
+export const resetPassword = (data) => {
+  return request.post('/guests/reset-password', data)
+}

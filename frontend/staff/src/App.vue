@@ -117,9 +117,9 @@ const avatarText = computed(() => {
 const rolePermissions = {
   admin: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
   manager: ['employees', 'hotels', 'rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'roomStatusLogs', 'consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
-  front_desk: ['consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills', 'facilityDamage'],
+  front_desk: ['consumableItems', 'consumableOrder', 'reservations', 'checkins', 'bills'],
   housekeeping: ['rooms', 'roomTypes', 'facilities', 'roomTypeFacilities', 'facilityDamage'],
-  finance: ['roomTypes', 'roomTypeFacilities', 'facilities', 'consumableItems', 'checkins', 'bills', 'facilityDamage']
+  finance: ['roomTypes', 'roomTypeFacilities', 'facilities', 'consumableItems', 'checkins', 'bills']
 }
 
 const getRoleLabel = (role) => {

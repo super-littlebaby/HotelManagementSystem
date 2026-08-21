@@ -6,7 +6,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,7 +13,6 @@ import java.util.List;
 /**
  * 房间状态变更日志Repository接口
  */
-@Repository
 public interface RoomStatusLogRepository extends JpaRepository<RoomStatusLog, Integer> {
 
     /**

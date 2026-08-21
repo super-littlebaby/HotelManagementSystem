@@ -136,7 +136,6 @@ public class HotelController {
         if (hotelOpt.isEmpty()) {
             return ResponseResult.error(404, "资源不存在");
         }
-        Hotel hotel = hotelOpt.get();
         Employee employee = (Employee) request.getAttribute("employee");
         if (!dataIsolationService.isGroupAdmin(employee)) {
             return ResponseResult.error(403, "无权删除酒店");

@@ -252,6 +252,34 @@ public class RoomController {
         return ResponseResult.success(roomService.convertToDTOList(roomService.findByHotelIdAndStatus(hotelId, status)));
     }
 
+    @Operation(summary = "按房型ID和状态查询可用房间", description = "查询可用房间（过滤掉已被确认/入住预订占用的房间）")
+    @GetMapping("/search/availableByRoomTypeIdAndStatus")
+    public ResponseResult<List<Map<String, Object>>> findAvailableByRoomTypeIdAndStatus(
+            @Parameter(description = "房型ID", required = true) @RequestParam Integer roomTypeId,
+            @Parameter(description = "状态", required = true) @RequestParam String status,
+            HttpServletRequest request) {
+        List<Room> rooms = roomService.findAvailableByRoomTypeIdAndStatus(roomTypeId, status);
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.isGroupAdmin(employee)) {
+            Integer hotelId = dataIsolationService.getAccessibleHotelId(employee);
+            rooms = rooms.stream().filter(r -> r.getHotelId().equals(hotelId)).toList();
+        }
+        return ResponseResult.success(roomService.convertToDTOList(rooms));
+    }
+
+    @Operation(summary = "按酒店ID和状态查询可用房间", description = "查询可用房间（过滤掉已被确认/入住预订占用的房间）")
+    @GetMapping("/search/availableByHotelIdAndStatus")
+    public ResponseResult<List<Map<String, Object>>> findAvailableByHotelIdAndStatus(
+            @Parameter(description = "酒店ID", required = true) @RequestParam Integer hotelId,
+            @Parameter(description = "状态", required = true) @RequestParam String status,
+            HttpServletRequest request) {
+        Employee employee = (Employee) request.getAttribute("employee");
+        if (!dataIsolationService.canAccessHotel(employee, hotelId)) {
+            return ResponseResult.error(403, "无权访问该酒店的房间");
+        }
+        return ResponseResult.success(roomService.convertToDTOList(roomService.findAvailableByHotelIdAndStatus(hotelId, status)));
+    }
+
     @Operation(summary = "更新房间状态", description = "更新房间状态并记录状态变更日志")
     @PutMapping("/{id}/status")
     public ResponseResult<Map<String, Object>> updateStatus(

@@ -13,6 +13,7 @@ const form = reactive({
   lastName: '',
   email: '',
   phone: '',
+  originalPhone: '',
   idType: '',
   idNumber: '',
   nationality: '',
@@ -48,6 +49,7 @@ onMounted(() => {
   form.lastName = guest.lastName || ''
   form.email = guest.email || ''
   form.phone = guest.phone || ''
+  form.originalPhone = guest.originalPhone || ''
   form.idType = guest.idType || 'id_card'
   form.idNumber = guest.idNumber || ''
   form.nationality = guest.nationality || ''
@@ -67,14 +69,21 @@ const toggleEdit = () => {
   isEditing.value = !isEditing.value
 }
 
+const handlePhoneFocus = () => {
+  // 点击手机号输入框时，清除脱敏内容让用户输入完整手机号
+  if (form.phone.includes('*')) {
+    form.phone = ''
+  }
+}
+
 const handleSave = async () => {
   if (!form.firstName || !form.lastName) {
     ElMessage.warning('请填写姓名')
     return
   }
   
-  if (form.phone && !form.phone.includes('*') && !validatePhone(form.phone)) {
-    ElMessage.warning('请输入有效的手机号码')
+  if (form.email && !form.email.includes('@') && !form.email.includes('.')) {
+    ElMessage.warning('请输入有效的邮箱地址')
     return
   }
   
@@ -89,8 +98,25 @@ const handleSave = async () => {
     lastName: form.lastName
   }
   
-  if (form.phone && !form.phone.includes('*') && form.phone !== originalForm.phone) {
-    updateData.phone = form.phone
+  // 手机号变更检测：用实际手机号(originalPhone)比较
+  const phoneChanged = form.phone !== form.originalPhone
+  if (phoneChanged) {
+    if (!form.phone) {
+      // 用户未填写新手机号，不更新
+    } else if (form.phone.includes('*')) {
+      // 仍是脱敏格式，提示用户输入完整手机号
+      ElMessage.warning('请输入完整的手机号')
+      return
+    } else if (!validatePhone(form.phone)) {
+      ElMessage.warning('请输入有效的手机号码')
+      return
+    } else {
+      updateData.phone = form.phone
+    }
+  }
+  
+  if (form.email && form.email !== originalForm.email) {
+    updateData.email = form.email
   }
   
   if (form.idType !== originalForm.idType) {
@@ -119,17 +145,16 @@ const handleSave = async () => {
   
   try {
     const res = await updateGuest(updateData)
-    if (res.code === 200) {
-      ElMessage.success('更新成功')
-      state.guest = res.data
-      localStorage.setItem('guest', JSON.stringify(res.data))
-      Object.assign(originalForm, form)
-      isEditing.value = false
-    } else {
-      ElMessage.error(res.message)
-    }
+    ElMessage.success('更新成功')
+    state.guest = res.data
+    localStorage.setItem('guest', JSON.stringify(res.data))
+    form.originalPhone = res.data.originalPhone || ''
+    form.phone = res.data.phone || ''
+    Object.assign(originalForm, form)
+    isEditing.value = false
   } catch (error) {
-    ElMessage.error('更新失败，请检查网络')
+    const msg = error?.message || error?.response?.data?.message || '更新失败，请检查网络'
+    ElMessage.error(msg)
   }
 }
 
@@ -196,7 +221,7 @@ const getGenderText = (gender) => {
             <span>{{ form.firstName?.charAt(0) || '?' }}</span>
           </div>
           <div class="user-info">
-            <h2>{{ form.firstName }} {{ form.lastName }}</h2>
+            <h2>{{ form.firstName }}{{ form.lastName }}</h2>
             <p>{{ form.email }}</p>
           </div>
           <button class="edit-btn" @click="toggleEdit">
@@ -218,11 +243,16 @@ const getGenderText = (gender) => {
               </div>
               <div class="form-item">
                 <label>邮箱</label>
-                <input v-model="form.email" :disabled="true" />
+                <input v-model="form.email" :disabled="!isEditing" placeholder="请输入邮箱" />
               </div>
               <div class="form-item">
                 <label>手机号</label>
-                <input v-model="form.phone" :disabled="!isEditing" placeholder="请输入手机号" />
+                <input 
+                  v-model="form.phone" 
+                  :disabled="!isEditing"
+                  @focus="handlePhoneFocus"
+                  :placeholder="form.originalPhone ? '点击输入新的手机号' : '请输入手机号'" 
+                />
               </div>
               <div class="form-item">
                 <label>证件类型</label>

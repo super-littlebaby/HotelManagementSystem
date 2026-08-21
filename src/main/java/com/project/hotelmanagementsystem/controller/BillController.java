@@ -1,7 +1,7 @@
 package com.project.hotelmanagementsystem.controller;
 
 import com.project.hotelmanagementsystem.common.ResponseResult;
-import com.project.hotelmanagementsystem.dto.BillDTO;
+import com.project.hotelmanagementsystem.dto.bill.BillDTO;
 import com.project.hotelmanagementsystem.entity.*;
 import com.project.hotelmanagementsystem.repository.*;
 import com.project.hotelmanagementsystem.service.BillService;
@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 

@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login } from '../api/auth'
+import { login, resetPassword } from '../api/auth'
 import { login as setLogin } from '../stores/auth'
 
 const router = useRouter()
@@ -25,33 +25,89 @@ const handleLogin = async () => {
   
   try {
     const res = await login(form.value)
-    if (res.code === 200) {
-      setLogin(res.data.token, res.data.guest)
-      ElMessage.success('登录成功')
-      // 如果存在 redirect 参数，跳回来源页面并保留附带参数（如 hotelId / roomTypeId）
-      const redirect = route.query.redirect
-      if (redirect && typeof redirect === 'string') {
-        const extra = { ...route.query }
-        delete extra.redirect
-        router.push({ path: redirect, query: Object.keys(extra).length ? extra : undefined })
-      } else {
-        router.push('/')
-      }
+    setLogin(res.data.token, res.data.guest)
+    ElMessage.success('登录成功')
+    const redirect = route.query.redirect
+    if (redirect && typeof redirect === 'string') {
+      const extra = { ...route.query }
+      delete extra.redirect
+      router.push({ path: redirect, query: Object.keys(extra).length ? extra : undefined })
     } else {
-      ElMessage.error(res.message)
+      router.push('/')
     }
   } catch (error) {
-    ElMessage.error('登录失败，请检查网络')
+    const msg = error?.message || error?.response?.data?.message || '登录失败，请检查网络'
+    ElMessage.error(msg)
   }
 }
 
 const validateAccount = (account) => {
-  // 邮箱格式验证
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  // 手机号格式验证（支持国际格式）
   const phoneRegex = /^[+]?[1-9]\d{1,14}$/
-  
   return emailRegex.test(account) || phoneRegex.test(account)
+}
+
+// 忘记密码功能
+const showResetDialog = ref(false)
+const resetForm = ref({
+  account: '',
+  idType: 'id_card',
+  idNumber: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+const resetLoading = ref(false)
+
+const openResetDialog = () => {
+  resetForm.value = {
+    account: '',
+    idType: 'id_card',
+    idNumber: '',
+    newPassword: '',
+    confirmPassword: ''
+  }
+  showResetDialog.value = true
+}
+
+const handleResetPassword = async () => {
+  if (!resetForm.value.account || !resetForm.value.idNumber || 
+      !resetForm.value.newPassword || !resetForm.value.confirmPassword) {
+    ElMessage.warning('请填写完整信息')
+    return
+  }
+  
+  if (!validateAccount(resetForm.value.account)) {
+    ElMessage.warning('请输入有效的手机号或邮箱地址')
+    return
+  }
+  
+  if (resetForm.value.newPassword.length < 6) {
+    ElMessage.warning('密码长度不能少于6位')
+    return
+  }
+  
+  if (resetForm.value.newPassword !== resetForm.value.confirmPassword) {
+    ElMessage.warning('输入的密码不同')
+    return
+  }
+  
+  resetLoading.value = true
+  try {
+    const res = await resetPassword({
+      account: resetForm.value.account,
+      idType: resetForm.value.idType,
+      idNumber: resetForm.value.idNumber,
+      newPassword: resetForm.value.newPassword
+    })
+    
+    ElMessage.success('密码重置成功，请登录')
+    showResetDialog.value = false
+  } catch (error) {
+    const msg = error?.message || error?.response?.data?.message || '重置密码失败，请检查网络'
+    ElMessage.error(msg)
+  } finally {
+    resetLoading.value = false
+  }
 }
 </script>
 
@@ -90,11 +146,44 @@ const validateAccount = (account) => {
           <div class="link-section">
             <span>还没有账号？</span>
             <router-link to="/register">立即注册</router-link>
+            <span class="divider">|</span>
+            <a href="#" class="forgot-link" @click.prevent="openResetDialog">忘记密码？</a>
           </div>
         </form>
       </div>
     </div>
+
+    <!-- 忘记密码对话框 -->
+    <el-dialog v-model="showResetDialog" title="重置密码" width="450px" :close-on-click-modal="false">
+      <div class="reset-tips">
+        <p>通过手机号/邮箱 + 证件号验证身份后重置密码</p>
+      </div>
+      <el-form :model="resetForm" label-width="100px">
+        <el-form-item label="手机号/邮箱">
+          <el-input v-model="resetForm.account" placeholder="请输入注册时使用的手机号或邮箱" />
+        </el-form-item>
+        <el-form-item label="证件类型">
+          <el-select v-model="resetForm.idType" style="width: 100%">
+            <el-option label="身份证" value="id_card" />
+            <el-option label="护照" value="passport" />
+            <el-option label="驾驶证" value="drivers_license" />
+            <el-option label="其他" value="other" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="证件号码">
+          <el-input v-model="resetForm.idNumber" placeholder="请输入证件号码" show-password />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="resetForm.newPassword" type="password" placeholder="至少6位" show-password />
+        </el-form-item>
+        <el-form-item label="确认密码">
+          <el-input v-model="resetForm.confirmPassword" type="password" placeholder="再次输入新密码" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showResetDialog = false">取消</el-button>
+        <el-button type="primary" :loading="resetLoading" @click="handleResetPassword">确认重置</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
-
-

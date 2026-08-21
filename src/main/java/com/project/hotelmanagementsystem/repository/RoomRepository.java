@@ -3,7 +3,6 @@ package com.project.hotelmanagementsystem.repository;
 import com.project.hotelmanagementsystem.entity.Room;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,7 +10,6 @@ import java.util.Optional;
 /**
  * 房间Repository接口
  */
-@Repository
 public interface RoomRepository extends JpaRepository<Room, Integer> {
 
     /**

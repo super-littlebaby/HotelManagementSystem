@@ -55,3 +55,27 @@ export const getRoomsByHotel = (hotelId) => {
     params: { hotelId }
   })
 }
+
+/**
+ * 按房型ID和状态查询可用房间（过滤掉已被确认/入住预订占用的房间）
+ * @param {Number} roomTypeId - 房型ID
+ * @param {String} status - 房间状态
+ * @returns {Promise} 可用房间列表
+ */
+export const getAvailableRoomsByTypeAndStatus = (roomTypeId, status) => {
+  return request.get(`/rooms/search/availableByRoomTypeIdAndStatus`, {
+    params: { roomTypeId, status }
+  })
+}
+
+/**
+ * 按酒店ID和状态查询可用房间（过滤掉已被确认/入住预订占用的房间）
+ * @param {Number} hotelId - 酒店ID
+ * @param {String} status - 房间状态
+ * @returns {Promise} 可用房间列表
+ */
+export const getAvailableRoomsByHotelAndStatus = (hotelId, status) => {
+  return request.get(`/rooms/search/availableByHotelIdAndStatus`, {
+    params: { hotelId, status }
+  })
+}

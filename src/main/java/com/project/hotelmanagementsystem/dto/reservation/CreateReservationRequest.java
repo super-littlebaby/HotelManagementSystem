@@ -14,9 +14,29 @@ import java.util.List;
 public class CreateReservationRequest {
 
     /**
-     * 客人ID（可选，登录用户自动填充）
+     * 客人ID（可选，登录用户自动填充；线下/电话预订无账号时为空）
      */
     private Integer guestId;
+
+    /**
+     * 客人姓名（线下/电话预订无账号时必填）
+     */
+    private String guestName;
+
+    /**
+     * 证件类型（线下客人）
+     */
+    private String idType;
+
+    /**
+     * 证件号码（线下客人，明文传入由后端加密）
+     */
+    private String idNumber;
+
+    /**
+     * 联系电话（线下客人）
+     */
+    private String phone;
 
     /**
      * 入住日期
@@ -54,6 +74,38 @@ public class CreateReservationRequest {
 
     public void setGuestId(Integer guestId) {
         this.guestId = guestId;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public void setGuestName(String guestName) {
+        this.guestName = guestName;
+    }
+
+    public String getIdType() {
+        return idType;
+    }
+
+    public void setIdType(String idType) {
+        this.idType = idType;
+    }
+
+    public String getIdNumber() {
+        return idNumber;
+    }
+
+    public void setIdNumber(String idNumber) {
+        this.idNumber = idNumber;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public LocalDate getCheckInDate() {

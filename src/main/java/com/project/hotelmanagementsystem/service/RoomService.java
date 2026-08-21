@@ -91,6 +91,18 @@ public interface RoomService {
     List<Room> findByHotelIdAndStatus(Integer hotelId, String status);
 
     /**
+     * 查询可用房间（过滤掉已被确认/入住预订占用的房间）
+     * 用于预订分配房间场景
+     */
+    List<Room> findAvailableByRoomTypeIdAndStatus(Integer roomTypeId, String status);
+
+    /**
+     * 查询可用房间（过滤掉已被确认/入住预订占用的房间）
+     * 用于预订分配房间场景
+     */
+    List<Room> findAvailableByHotelIdAndStatus(Integer hotelId, String status);
+
+    /**
      * 更新房间状态并记录日志
      *
      * @param id        房间ID

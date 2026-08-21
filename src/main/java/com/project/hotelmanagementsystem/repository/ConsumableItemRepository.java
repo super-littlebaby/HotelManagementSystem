@@ -2,14 +2,12 @@ package com.project.hotelmanagementsystem.repository;
 
 import com.project.hotelmanagementsystem.entity.ConsumableItem;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 /**
  * 可消费项目Repository接口
  */
-@Repository
 public interface ConsumableItemRepository extends JpaRepository<ConsumableItem, Integer> {
 
     /**

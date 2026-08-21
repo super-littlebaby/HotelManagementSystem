@@ -1,8 +1,14 @@
-package com.project.hotelmanagementsystem.dto;
+package com.project.hotelmanagementsystem.dto.bill;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 账单详情 DTO（用于前端一次性展示：账单 + 客人 + 房间 + 汇总金额）
+ * <p>
+ * 保留包：dto.bill（与 dto.checkin / dto.reservation 等子包保持一致）。
+ * </p>
+ */
 public class BillDTO {
     private Integer id;
     private Integer checkInId;

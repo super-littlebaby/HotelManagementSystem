@@ -2,7 +2,6 @@ package com.project.hotelmanagementsystem.repository;
 
 import com.project.hotelmanagementsystem.entity.StayGuest;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -12,7 +11,6 @@ import java.util.List;
  * 提供同住客人记录的数据库操作方法。
  * </p>
  */
-@Repository
 public interface StayGuestRepository extends JpaRepository<StayGuest, Integer> {
 
     /**

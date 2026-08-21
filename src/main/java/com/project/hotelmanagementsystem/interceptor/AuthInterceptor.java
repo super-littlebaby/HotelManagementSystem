@@ -6,7 +6,6 @@ import com.project.hotelmanagementsystem.entity.Guest;
 import com.project.hotelmanagementsystem.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -17,8 +16,11 @@ import java.util.Arrays;
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
-    @Autowired
-    private AuthService authService;
+    private final AuthService authService;
+
+    public AuthInterceptor(AuthService authService) {
+        this.authService = authService;
+    }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {

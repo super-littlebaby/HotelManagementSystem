@@ -1,5 +1,6 @@
 package com.project.hotelmanagementsystem.dto.reservation;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.project.hotelmanagementsystem.dto.checkin.CreateCheckInRequest;
 
 import java.util.List;
@@ -57,6 +58,12 @@ public class CheckInReservationRequest {
         private String primaryPhone;
 
         /**
+         * 押金支付方式（cash/credit_card/debit_card/wechat/alipay/bank_transfer）
+         */
+        @JsonProperty("depositPaymentMethod")
+        private String depositPaymentMethod;
+
+        /**
          * 同住客人信息列表（不含主登记人）
          */
         private List<CreateCheckInRequest.StayGuestRequest> stayGuests;
@@ -99,6 +106,14 @@ public class CheckInReservationRequest {
 
         public void setPrimaryPhone(String primaryPhone) {
             this.primaryPhone = primaryPhone;
+        }
+
+        public String getDepositPaymentMethod() {
+            return depositPaymentMethod;
+        }
+
+        public void setDepositPaymentMethod(String depositPaymentMethod) {
+            this.depositPaymentMethod = depositPaymentMethod;
         }
 
         public List<CreateCheckInRequest.StayGuestRequest> getStayGuests() {

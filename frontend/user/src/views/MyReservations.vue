@@ -144,7 +144,7 @@ const getStatusText = (status) => {
     'checked_in': '已入住',
     'checked_out': '已退房',
     'cancelled': '已取消',
-    'no_show': '未入住'
+    'no_show': '未到场'
   }
   return statusMap[status] || status
 }

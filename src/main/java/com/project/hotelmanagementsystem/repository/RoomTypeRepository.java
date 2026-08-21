@@ -3,12 +3,10 @@ package com.project.hotelmanagementsystem.repository;
 import com.project.hotelmanagementsystem.entity.RoomType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
-@Repository
 public interface RoomTypeRepository extends JpaRepository<RoomType, Integer> {
 
     @Query("SELECT rt FROM RoomType rt JOIN FETCH rt.hotel ORDER BY rt.id")

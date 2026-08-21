@@ -1,5 +1,6 @@
 package com.project.hotelmanagementsystem.dto.checkin;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.project.hotelmanagementsystem.entity.CheckIn;
 import com.project.hotelmanagementsystem.entity.StayGuest;
 
@@ -23,6 +24,8 @@ public class CreateCheckInRequest {
     private Double ratePerNight;
     private Double totalCharge;
     private String notes;
+    @JsonProperty("depositPaymentMethod")
+    private String depositPaymentMethod;
     private List<StayGuestRequest> stayGuests;
 
     public Integer getReservationId() {
@@ -143,6 +146,14 @@ public class CreateCheckInRequest {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getDepositPaymentMethod() {
+        return depositPaymentMethod;
+    }
+
+    public void setDepositPaymentMethod(String depositPaymentMethod) {
+        this.depositPaymentMethod = depositPaymentMethod;
     }
 
     public List<StayGuestRequest> getStayGuests() {

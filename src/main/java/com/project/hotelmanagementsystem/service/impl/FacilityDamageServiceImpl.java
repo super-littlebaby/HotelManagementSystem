@@ -4,7 +4,6 @@ import com.project.hotelmanagementsystem.entity.*;
 import com.project.hotelmanagementsystem.repository.*;
 import com.project.hotelmanagementsystem.service.FacilityDamageService;
 import com.project.hotelmanagementsystem.service.RoomService;
-import com.project.hotelmanagementsystem.service.RoomStatusLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.Comparator;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -26,7 +24,6 @@ public class FacilityDamageServiceImpl implements FacilityDamageService {
     private final BillRepository billRepository;
     private final BillItemRepository billItemRepository;
     private final RoomService roomService;
-    private final RoomStatusLogService roomStatusLogService;
 
     public FacilityDamageServiceImpl(RoomRepository roomRepository,
                                       CheckInRepository checkInRepository,
@@ -35,8 +32,7 @@ public class FacilityDamageServiceImpl implements FacilityDamageService {
                                       FacilityRepository facilityRepository,
                                       BillRepository billRepository,
                                       BillItemRepository billItemRepository,
-                                      RoomService roomService,
-                                      RoomStatusLogService roomStatusLogService) {
+                                      RoomService roomService) {
         this.roomRepository = roomRepository;
         this.checkInRepository = checkInRepository;
         this.guestRepository = guestRepository;
@@ -45,7 +41,6 @@ public class FacilityDamageServiceImpl implements FacilityDamageService {
         this.billRepository = billRepository;
         this.billItemRepository = billItemRepository;
         this.roomService = roomService;
-        this.roomStatusLogService = roomStatusLogService;
     }
 
     @Override
@@ -119,6 +114,7 @@ public class FacilityDamageServiceImpl implements FacilityDamageService {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public Map<String, Object> reportDamage(Map<String, Object> requestBody, Integer employeeId) {
         String roomNumber = (String) requestBody.get("roomNumber");

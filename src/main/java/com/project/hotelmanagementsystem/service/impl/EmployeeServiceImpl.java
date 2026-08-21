@@ -3,7 +3,6 @@ package com.project.hotelmanagementsystem.service.impl;
 import com.project.hotelmanagementsystem.entity.Employee;
 import com.project.hotelmanagementsystem.repository.EmployeeRepository;
 import com.project.hotelmanagementsystem.service.EmployeeService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +20,6 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Autowired
     public EmployeeServiceImpl(EmployeeRepository employeeRepository, PasswordEncoder passwordEncoder) {
         this.employeeRepository = employeeRepository;
         this.passwordEncoder = passwordEncoder;

@@ -1,7 +1,6 @@
 package com.project.hotelmanagementsystem.config;
 
 import com.project.hotelmanagementsystem.interceptor.AuthInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -9,8 +8,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Autowired
-    private AuthInterceptor authInterceptor;
+    private final AuthInterceptor authInterceptor;
+
+    public WebMvcConfig(AuthInterceptor authInterceptor) {
+        this.authInterceptor = authInterceptor;
+    }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -20,6 +22,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/employees/login",
                         "/api/guests/login",
                         "/api/guests/register",
+                        "/api/guests/reset-password",
                         "/api/room-types/search/byHotelId",
                         "/api/rooms/search/byHotelId",
                         "/api/facilities",

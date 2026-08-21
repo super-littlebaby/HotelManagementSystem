@@ -1,6 +1,5 @@
 package com.project.hotelmanagementsystem.service;
 
-import com.project.hotelmanagementsystem.dto.checkin.CreateCheckInRequest;
 import com.project.hotelmanagementsystem.dto.reservation.CheckInReservationRequest;
 import com.project.hotelmanagementsystem.dto.reservation.CreateReservationRequest;
 import com.project.hotelmanagementsystem.dto.reservation.ReservationResponse;
@@ -199,4 +198,12 @@ public interface ReservationService {
      * @return 预订详情列表
      */
     List<ReservationResponse> findAllWithHotelFilter(Integer hotelId);
+
+    /**
+     * 自动更新过期预订状态为"未到场"
+     * 查询时动态判断，将超过入住日期且未入住/取消的预订标记为 no_show
+     *
+     * @return 更新的记录数
+     */
+    int autoUpdateExpiredToNoShow();
 }

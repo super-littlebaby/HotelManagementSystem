@@ -585,3 +585,105 @@ body {
 .hotel-select-autocomplete {
   width: 100%;
 }
+
+/* ============ FacilityDamage Page Styles ============ */
+/* 注意：通过 .facility-damage-page 限定作用域，避免覆盖全局 .page / .search-card / .info-card 等样式 */
+/* .page.facility-damage-page 连写表示同一元素同时具备两个类，用于覆盖全局 .page 的 padding */
+.page.facility-damage-page {
+  padding: 0;
+}
+
+.facility-damage-page .search-card {
+  margin-bottom: 20px;
+}
+
+.facility-damage-page .info-card {
+  margin-bottom: 20px;
+}
+
+.facility-damage-page .damage-card {
+  margin-bottom: 20px;
+}
+
+.facility-damage-page .section-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #303133;
+}
+
+.facility-damage-page .total-row {
+  text-align: right;
+  font-size: 16px;
+  margin-top: 10px;
+  padding: 10px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.facility-damage-page .total-amount {
+  font-weight: bold;
+  color: #f56c6c;
+  font-size: 20px;
+  margin-left: 10px;
+}
+
+.facility-damage-page .damage-amount {
+  color: #f56c6c;
+  font-weight: bold;
+}
+
+.facility-damage-page .text-muted {
+  color: #c0c4cc;
+}
+
+.facility-damage-page .hint-text {
+  color: #909399;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.facility-damage-page .form-actions {
+  text-align: right;
+  margin-top: 20px;
+}
+
+/* ============ Reservations Page Styles ============ */
+/* 注意：通过 .reservation-page 限定作用域，避免覆盖全局 .page-header 等样式 */
+.reservation-page .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.reservation-page .page-header h2 {
+  margin: 0;
+}
+
+.reservation-page .selected-guest-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f0f9eb;
+  border: 1px solid #e1f3d8;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.reservation-page .add-room-block {
+  background: #fafafa;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 10px 15px;
+  margin-bottom: 12px;
+}
+
+.reservation-page .add-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #606266;
+}

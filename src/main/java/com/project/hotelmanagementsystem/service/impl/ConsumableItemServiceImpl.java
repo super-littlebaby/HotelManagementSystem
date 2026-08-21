@@ -3,7 +3,6 @@ package com.project.hotelmanagementsystem.service.impl;
 import com.project.hotelmanagementsystem.entity.ConsumableItem;
 import com.project.hotelmanagementsystem.repository.ConsumableItemRepository;
 import com.project.hotelmanagementsystem.service.ConsumableItemService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +18,6 @@ public class ConsumableItemServiceImpl implements ConsumableItemService {
 
     private final ConsumableItemRepository consumableItemRepository;
 
-    @Autowired
     public ConsumableItemServiceImpl(ConsumableItemRepository consumableItemRepository) {
         this.consumableItemRepository = consumableItemRepository;
     }

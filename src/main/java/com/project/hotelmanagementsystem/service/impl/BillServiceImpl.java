@@ -3,7 +3,6 @@ package com.project.hotelmanagementsystem.service.impl;
 import com.project.hotelmanagementsystem.entity.Bill;
 import com.project.hotelmanagementsystem.repository.BillRepository;
 import com.project.hotelmanagementsystem.service.BillService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +18,6 @@ public class BillServiceImpl implements BillService {
 
     private final BillRepository billRepository;
 
-    @Autowired
     public BillServiceImpl(BillRepository billRepository) {
         this.billRepository = billRepository;
     }

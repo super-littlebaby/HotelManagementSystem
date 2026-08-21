@@ -1,5 +1,8 @@
 package com.project.hotelmanagementsystem.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.project.hotelmanagementsystem.common.ResponseResult;
 import com.project.hotelmanagementsystem.dto.reservation.CheckInReservationRequest;
 import com.project.hotelmanagementsystem.dto.reservation.CreateReservationRequest;
@@ -14,6 +17,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +39,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/reservations")
 public class ReservationController {
+
+    private static final Logger log = LoggerFactory.getLogger(ReservationController.class);
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final ReservationService reservationService;
     private final GuestService guestService;
@@ -57,21 +66,23 @@ public class ReservationController {
      * @param request 创建预订请求
      * @return 预订详情
      */
-    @Operation(summary = "创建预订", description = "客人创建新的预订订单，支持多房间预订")
+    @Operation(summary = "创建预订", description = "客人创建新的预订订单，支持多房间预订；线下/电话预订可无账号")
     @PostMapping("/create")
     public ResponseResult<ReservationResponse> createReservation(
             @Parameter(description = "创建预订请求", required = true)
             @Valid @RequestBody CreateReservationRequest request) {
 
-        // 校验客人ID
-        if (request.getGuestId() == null) {
-            return ResponseResult.error(400, "客人ID不能为空");
+        // 校验：guestId 和 guestName 至少有一个
+        if (request.getGuestId() == null && (request.getGuestName() == null || request.getGuestName().trim().isEmpty())) {
+            return ResponseResult.error(400, "客人ID和客人姓名不能同时为空");
         }
 
-        Guest guest = guestService.findById(request.getGuestId())
-                .orElse(null);
-        if (guest == null) {
-            return ResponseResult.error(404, "客人不存在");
+        Guest guest = null;
+        if (request.getGuestId() != null) {
+            guest = guestService.findById(request.getGuestId()).orElse(null);
+            if (guest == null) {
+                return ResponseResult.error(404, "客人不存在");
+            }
         }
 
         try {
@@ -260,6 +271,31 @@ public class ReservationController {
         Employee employee = (Employee) request.getAttribute("employee");
         if (employee == null) {
             return ResponseResult.error(401, "未授权");
+        }
+
+        // 诊断日志：打印每个房间的押金支付方式 + 完整 JSON，确认反序列化结果
+        try {
+            if (requestBody != null && requestBody.getRooms() != null) {
+                StringBuilder sb = new StringBuilder(512);
+                for (int i = 0; i < requestBody.getRooms().size(); i++) {
+                    CheckInReservationRequest.RoomCheckInRequest r = requestBody.getRooms().get(i);
+                    sb.append("[房间").append(i + 1).append(" reservationRoomId=").append(r.getReservationRoomId())
+                            .append(", primaryGuestName=").append(r.getPrimaryGuestName())
+                            .append(", depositPaymentMethod=").append(r.getDepositPaymentMethod()).append("] ");
+                }
+                log.info("[DIAG-CHECKIN] 预约入住请求DTO: {} JSON={}", sb.toString(), OBJECT_MAPPER.writeValueAsString(requestBody));
+            } else {
+                log.info("[DIAG-CHECKIN] 预约入住请求DTO: requestBody 或 requestBody.getRooms() 为 null");
+            }
+        } catch (JsonProcessingException e) {
+            StringBuilder sb = new StringBuilder(512);
+            if (requestBody != null && requestBody.getRooms() != null) {
+                for (int i = 0; i < requestBody.getRooms().size(); i++) {
+                    CheckInReservationRequest.RoomCheckInRequest r = requestBody.getRooms().get(i);
+                    sb.append("[房间").append(i + 1).append(" depositPaymentMethod=").append(r.getDepositPaymentMethod()).append("] ");
+                }
+            }
+            log.info("[DIAG-CHECKIN] 预约入住请求DTO: {}", sb.toString());
         }
 
         try {

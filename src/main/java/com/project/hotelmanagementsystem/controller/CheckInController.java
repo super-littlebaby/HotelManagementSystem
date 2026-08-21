@@ -17,6 +17,9 @@ import com.project.hotelmanagementsystem.repository.RoomTypeRepository;
 import com.project.hotelmanagementsystem.service.CheckInService;
 import com.project.hotelmanagementsystem.service.DataIsolationService;
 import com.project.hotelmanagementsystem.service.RoomStatusLogService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +29,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -47,6 +52,10 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/check-ins")
 public class CheckInController {
+
+    private static final Logger log = LoggerFactory.getLogger(CheckInController.class);
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final CheckInService checkInService;
     private final CheckInRepository checkInRepository;
@@ -149,6 +158,16 @@ public class CheckInController {
             HttpServletRequest request) {
         Employee employee = (Employee) request.getAttribute("employee");
 
+        // 诊断日志：打印完整入参（含押金支付方式），使用 ObjectMapper 回写 JSON 确认反序列化结果
+        try {
+            log.info("[DIAG-CHECKIN] 未预约入住请求DTO: guestName={}, roomId={}, depositPaymentMethod={}, JSON={}",
+                    requestBody.getGuestName(), requestBody.getRoomId(), requestBody.getDepositPaymentMethod(),
+                    OBJECT_MAPPER.writeValueAsString(requestBody));
+        } catch (JsonProcessingException e) {
+            log.info("[DIAG-CHECKIN] 未预约入住请求DTO: guestName={}, roomId={}, depositPaymentMethod={}",
+                    requestBody.getGuestName(), requestBody.getRoomId(), requestBody.getDepositPaymentMethod());
+        }
+
         CheckIn checkIn = requestBody.toCheckIn();
 
         // 从房间获取 hotelId 和 roomTypeId
@@ -240,7 +259,8 @@ public class CheckInController {
                 Payment payment = new Payment();
                 payment.setBillId(savedBill.getId());
                 payment.setAmount(depositAmount);
-                payment.setPaymentMethod("cash");
+                String depositMethod = requestBody.getDepositPaymentMethod();
+                payment.setPaymentMethod(depositMethod != null && !depositMethod.isEmpty() ? depositMethod : "cash");
                 payment.setPaymentType("deposit");
                 payment.setPaymentDate(LocalDateTime.now());
                 payment.setEmployeeId(employee != null ? employee.getId() : null);

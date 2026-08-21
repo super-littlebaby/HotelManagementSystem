@@ -10,7 +10,6 @@ import com.project.hotelmanagementsystem.entity.*;
 import com.project.hotelmanagementsystem.repository.*;
 import com.project.hotelmanagementsystem.service.ReservationService;
 import com.project.hotelmanagementsystem.util.EncryptionUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +43,6 @@ public class ReservationServiceImpl implements ReservationService {
     private final BillRepository billRepository;
     private final PaymentRepository paymentRepository;
 
-    @Autowired
     public ReservationServiceImpl(ReservationRepository reservationRepository,
                                   ReservationRoomRepository reservationRoomRepository,
                                   RoomTypeRepository roomTypeRepository,
@@ -185,7 +183,6 @@ public class ReservationServiceImpl implements ReservationService {
 
         // 创建预订主单
         Reservation reservation = new Reservation();
-        reservation.setGuestId(guest.getId());
         reservation.setHotelId(hotelId);
         reservation.setBookingDate(LocalDateTime.now());
         reservation.setCheckInDate(request.getCheckInDate());
@@ -194,6 +191,26 @@ public class ReservationServiceImpl implements ReservationService {
         reservation.setTotalAmount(totalAmount);
         reservation.setSpecialRequests(request.getSpecialRequests());
         reservation.setChannel(request.getChannel());
+
+        if (guest != null) {
+            // 有账号客人：同时冗余写入客人快照信息（避免后续查询 JOIN guests 表，并保留预订时的客人信息）
+            reservation.setGuestId(guest.getId());
+            reservation.setGuestName((guest.getFirstName() != null ? guest.getFirstName() : "")
+                    + (guest.getLastName() != null ? guest.getLastName() : ""));
+            reservation.setIdType(guest.getIdType());
+            // guests.id_number 已加密存储，直接拷贝
+            reservation.setIdNumber(guest.getIdNumber());
+            reservation.setPhone(guest.getPhone());
+        } else {
+            // 线下/电话预订无账号：写入预订本身记录的客人信息
+            reservation.setGuestName(request.getGuestName());
+            reservation.setIdType(request.getIdType() != null ? request.getIdType() : "id_card");
+            // 证件号加密存储
+            if (request.getIdNumber() != null && !request.getIdNumber().isEmpty()) {
+                reservation.setIdNumber(EncryptionUtil.encrypt(request.getIdNumber()));
+            }
+            reservation.setPhone(request.getPhone());
+        }
 
         Reservation savedReservation = reservationRepository.save(reservation);
 
@@ -220,7 +237,7 @@ public class ReservationServiceImpl implements ReservationService {
             Room room = roomRepository.findById(roomId)
                     .orElseThrow(() -> new IllegalArgumentException("房间不存在: " + roomId));
 
-            if (!room.getHotelId().equals(reservation.getHotelId())) {
+            if (reservation.getHotelId() == null || !room.getHotelId().equals(reservation.getHotelId())) {
                 throw new IllegalArgumentException("房间不属于该预订的酒店");
             }
 
@@ -266,7 +283,7 @@ public class ReservationServiceImpl implements ReservationService {
                     rr.setRoomId(roomId);
                     reservationRoomRepository.save(rr);
                 } else {
-                    throw new IllegalArgumentException("未找到匹配房型的房间明细进行分配");
+                    throw new IllegalArgumentException("未找到匹配房型的房间明细进行分配（预订房型与所选房间房型不一致）");
                 }
             }
         }
@@ -503,7 +520,8 @@ public class ReservationServiceImpl implements ReservationService {
             Payment payment = new Payment();
             payment.setBillId(savedBill.getId());
             payment.setAmount(depositAmount);
-            payment.setPaymentMethod("cash");
+            String depositMethod = roomCheckIn.getDepositPaymentMethod();
+            payment.setPaymentMethod(depositMethod != null && !depositMethod.isEmpty() ? depositMethod : "cash");
             payment.setPaymentType("deposit");
             payment.setPaymentDate(LocalDateTime.now());
             payment.setEmployeeId(employeeId);
@@ -569,7 +587,7 @@ public class ReservationServiceImpl implements ReservationService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("房间不存在: " + roomId));
 
-        if (!room.getHotelId().equals(reservation.getHotelId())) {
+        if (reservation.getHotelId() == null || !room.getHotelId().equals(reservation.getHotelId())) {
             throw new IllegalArgumentException("房间不属于该预订的酒店");
         }
 
@@ -636,7 +654,7 @@ public class ReservationServiceImpl implements ReservationService {
                 }
                 reservationRoomRepository.save(rr);
             } else {
-                throw new IllegalArgumentException("未找到匹配房型的房间明细进行分配");
+                throw new IllegalArgumentException("未找到匹配房型的房间明细进行分配（预订房型与所选房间房型不一致）");
             }
         }
 
@@ -704,8 +722,9 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<ReservationResponse> findAllWithHotelFilter(Integer hotelId) {
+        autoUpdateExpiredToNoShow();
+        
         List<Reservation> reservations;
         if (hotelId != null) {
             reservations = reservationRepository.findByHotelId(hotelId);
@@ -739,15 +758,18 @@ public class ReservationServiceImpl implements ReservationService {
         response.setEmployeeId(reservation.getEmployeeId());
         response.setChannel(reservation.getChannel());
 
-        // 加载客人姓名、手机、邮箱、证件
+        // 加载客人姓名、手机、证件（统一从预订上的冗余快照取，避免每次 JOIN guests 表）
+        response.setGuestName(reservation.getGuestName());
+        response.setGuestPhone(reservation.getPhone());
+        response.setGuestIdType(reservation.getIdType());
+        if (reservation.getIdNumber() != null && !reservation.getIdNumber().isEmpty()) {
+            response.setGuestIdNumber(EncryptionUtil.decrypt(reservation.getIdNumber()));
+        }
+        // email 仅在有账号客人时从 guests 表补充（预订表未冗余 email）
         if (reservation.getGuestId() != null) {
-            guestRepository.findById(reservation.getGuestId()).ifPresent(guest -> {
-                response.setGuestName(guest.getFirstName() + guest.getLastName());
-                response.setGuestPhone(guest.getPhone());
-                response.setGuestEmail(guest.getEmail());
-                response.setGuestIdType(guest.getIdType());
-                response.setGuestIdNumber(EncryptionUtil.decrypt(guest.getIdNumber()));
-            });
+            guestRepository.findById(reservation.getGuestId()).ifPresent(guest ->
+                    response.setGuestEmail(guest.getEmail())
+            );
         }
 
         // 加载酒店名称
@@ -797,5 +819,11 @@ public class ReservationServiceImpl implements ReservationService {
         }
 
         return response;
+    }
+
+    @Override
+    @Transactional
+    public int autoUpdateExpiredToNoShow() {
+        return reservationRepository.updateExpiredReservationsToNoShow(LocalDate.now());
     }
 }

@@ -18,7 +18,6 @@ import com.project.hotelmanagementsystem.repository.StayGuestRepository;
 import com.project.hotelmanagementsystem.service.CheckInService;
 import com.project.hotelmanagementsystem.service.RoomStatusLogService;
 import com.project.hotelmanagementsystem.util.EncryptionUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +47,6 @@ public class CheckInServiceImpl implements CheckInService {
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
 
-    @Autowired
     public CheckInServiceImpl(CheckInRepository checkInRepository, RoomRepository roomRepository,
                               StayGuestRepository stayGuestRepository, GuestRepository guestRepository,
                               RoomStatusLogService roomStatusLogService,

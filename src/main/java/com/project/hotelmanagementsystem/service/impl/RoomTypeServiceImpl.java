@@ -3,7 +3,6 @@ package com.project.hotelmanagementsystem.service.impl;
 import com.project.hotelmanagementsystem.entity.RoomType;
 import com.project.hotelmanagementsystem.repository.RoomTypeRepository;
 import com.project.hotelmanagementsystem.service.RoomTypeService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +18,6 @@ public class RoomTypeServiceImpl implements RoomTypeService {
 
     private final RoomTypeRepository roomTypeRepository;
 
-    @Autowired
     public RoomTypeServiceImpl(RoomTypeRepository roomTypeRepository) {
         this.roomTypeRepository = roomTypeRepository;
     }

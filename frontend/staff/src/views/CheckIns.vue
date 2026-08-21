@@ -33,7 +33,7 @@
     </el-table>
     
     <el-dialog v-model="showAddDialog" title="未预约入住" width="800px">
-      <el-form :model="form" label-width="100px">
+      <el-form :model="form" label-width="120px">
         <el-divider content-position="left">主登记人信息</el-divider>
         <el-form-item label="姓名" required>
           <el-input v-model="form.guestName" placeholder="请输入主登记人姓名" />
@@ -72,6 +72,16 @@
         </el-form-item>
         <el-form-item label="预计退房时间" required>
           <el-date-picker v-model="form.expectedCheckOutTime" type="datetime" style="width: 100%" placeholder="选择预计退房时间" />
+        </el-form-item>
+        <el-form-item label="押金支付方式" required>
+          <el-select v-model="form.depositPaymentMethod" placeholder="请选择押金支付方式">
+            <el-option label="现金" value="cash" />
+            <el-option label="信用卡" value="credit_card" />
+            <el-option label="借记卡" value="debit_card" />
+            <el-option label="微信支付" value="wechat" />
+            <el-option label="支付宝" value="alipay" />
+            <el-option label="银行转账" value="bank_transfer" />
+          </el-select>
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.notes" type="textarea" placeholder="入住备注" />
@@ -215,6 +225,7 @@ import { getRooms, getRoomsByType } from '../api/room'
 import { formatDateTime } from '../utils/date'
 import { getRoomTypes } from '../api/roomType'
 import { state as authState } from '../stores/auth'
+import { validateIdNumber } from '../utils/validate'
 
 const checkIns = ref([])
 const availableRooms = ref([])
@@ -257,6 +268,7 @@ const form = reactive({
   children: 0,
   expectedCheckOutTime: '',
   notes: '',
+  depositPaymentMethod: 'cash',
   stayGuests: []
 })
 
@@ -367,6 +379,12 @@ const saveCheckIn = async () => {
     ElMessage.warning('请填写证件号码')
     return
   }
+  // 验证证件号码（身份证需要严格验证）
+  const idValidation = validateIdNumber(form.idType, form.idNumber)
+  if (!idValidation.valid) {
+    ElMessage.warning(idValidation.message)
+    return
+  }
   if (!form.phone) {
     ElMessage.warning('请填写联系电话')
     return
@@ -390,6 +408,22 @@ const saveCheckIn = async () => {
   if (checkOutDate <= today) {
     ElMessage.warning('预计退房日期必须晚于今天')
     return
+  }
+  if (!form.depositPaymentMethod) {
+    ElMessage.warning('请选择押金支付方式')
+    return
+  }
+
+  // 验证同住客人的证件号码
+  for (let i = 0; i < form.stayGuests.length; i++) {
+    const guest = form.stayGuests[i]
+    if (guest.idNumber && guest.idType) {
+      const guestIdValidation = validateIdNumber(guest.idType, guest.idNumber)
+      if (!guestIdValidation.valid) {
+        ElMessage.warning(`同住客人 ${i + 1}：${guestIdValidation.message}`)
+        return
+      }
+    }
   }
 
   const validStayGuests = form.stayGuests.filter(g => g.idNumber && g.name)
@@ -416,9 +450,12 @@ const saveCheckIn = async () => {
     children: form.children || 0,
     expectedCheckOutTime: form.expectedCheckOutTime,
     notes: form.notes,
+    depositPaymentMethod: form.depositPaymentMethod,
     stayGuests: validStayGuests.length > 0 ? validStayGuests : undefined
   }
-  
+
+  console.log('[DIAG-CHECKIN] 未预约入住提交数据：', JSON.stringify(submitData, null, 2))
+
   try {
     await createCheckIn(submitData)
     ElMessage.success('入住成功')
@@ -433,6 +470,7 @@ const saveCheckIn = async () => {
     form.children = 0
     form.expectedCheckOutTime = ''
     form.notes = ''
+    form.depositPaymentMethod = 'cash'
     form.stayGuests = []
     availableRooms.value = []
     loadCheckIns()

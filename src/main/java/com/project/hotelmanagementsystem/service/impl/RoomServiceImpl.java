@@ -2,11 +2,11 @@ package com.project.hotelmanagementsystem.service.impl;
 
 import com.project.hotelmanagementsystem.entity.Room;
 import com.project.hotelmanagementsystem.entity.RoomType;
+import com.project.hotelmanagementsystem.repository.ReservationRoomRepository;
 import com.project.hotelmanagementsystem.repository.RoomRepository;
 import com.project.hotelmanagementsystem.repository.RoomTypeRepository;
 import com.project.hotelmanagementsystem.service.RoomService;
 import com.project.hotelmanagementsystem.service.RoomStatusLogService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,14 +23,16 @@ public class RoomServiceImpl implements RoomService {
     private final RoomRepository roomRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final RoomStatusLogService roomStatusLogService;
+    private final ReservationRoomRepository reservationRoomRepository;
 
-    @Autowired
     public RoomServiceImpl(RoomRepository roomRepository,
                            RoomTypeRepository roomTypeRepository,
-                           RoomStatusLogService roomStatusLogService) {
+                           RoomStatusLogService roomStatusLogService,
+                           ReservationRoomRepository reservationRoomRepository) {
         this.roomRepository = roomRepository;
         this.roomTypeRepository = roomTypeRepository;
         this.roomStatusLogService = roomStatusLogService;
+        this.reservationRoomRepository = reservationRoomRepository;
     }
 
     @Override
@@ -110,6 +112,20 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Room> findAvailableByRoomTypeIdAndStatus(Integer roomTypeId, String status) {
+        List<Room> rooms = roomRepository.findByRoomTypeIdAndStatus(roomTypeId, status);
+        return filterOutLockedRooms(rooms);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Room> findAvailableByHotelIdAndStatus(Integer hotelId, String status) {
+        List<Room> rooms = roomRepository.findByHotelIdAndStatus(hotelId, status);
+        return filterOutLockedRooms(rooms);
+    }
+
+    @Override
     public Room updateStatus(Integer id, String newStatus, Integer changedBy, String notes) {
         return roomRepository.findByIdWithRelations(id)
                 .map(room -> {
@@ -143,5 +159,22 @@ public class RoomServiceImpl implements RoomService {
     @Override
     public List<Map<String, Object>> convertToDTOList(List<Room> rooms) {
         return rooms.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    /**
+     * 过滤掉已被确认/入住预订占用的房间
+     * 即使房间状态仍是 vacant，只要有 confirmed/checked_in 预订锁定它，就不应再分配
+     */
+    private List<Room> filterOutLockedRooms(List<Room> rooms) {
+        if (rooms == null || rooms.isEmpty()) {
+            return rooms;
+        }
+        List<Integer> lockedRoomIds = reservationRoomRepository.findLockedRoomIds();
+        if (lockedRoomIds.isEmpty()) {
+            return rooms;
+        }
+        return rooms.stream()
+                .filter(room -> !lockedRoomIds.contains(room.getId()))
+                .collect(Collectors.toList());
     }
 }

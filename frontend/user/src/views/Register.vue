@@ -64,15 +64,12 @@ const handleRegister = async () => {
   }
   
   try {
-    const res = await register(form.value)
-    if (res.code === 200) {
-      ElMessage.success('注册成功，请登录')
-      router.push('/login')
-    } else {
-      ElMessage.error(res.message)
-    }
+    await register(form.value)
+    ElMessage.success('注册成功，请登录')
+    router.push('/login')
   } catch (error) {
-    ElMessage.error('注册失败，请检查网络')
+    const msg = error?.message || error?.response?.data?.message || '注册失败，请检查网络'
+    ElMessage.error(msg)
   }
 }
 

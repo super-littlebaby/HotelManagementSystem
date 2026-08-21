@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page facility-damage-page">
     <div class="page-header">
       <h2>设施损坏追责</h2>
     </div>
@@ -278,63 +278,3 @@ const submitReport = async () => {
   }
 }
 </script>
-
-<style scoped>
-.page {
-  padding: 0;
-}
-
-.search-card {
-  margin-bottom: 20px;
-}
-
-.info-card {
-  margin-bottom: 20px;
-}
-
-.damage-card {
-  margin-bottom: 20px;
-}
-
-.section-title {
-  font-weight: bold;
-  margin-bottom: 10px;
-  color: #303133;
-}
-
-.total-row {
-  text-align: right;
-  font-size: 16px;
-  margin-top: 10px;
-  padding: 10px;
-  background: #f5f7fa;
-  border-radius: 4px;
-}
-
-.total-amount {
-  font-weight: bold;
-  color: #f56c6c;
-  font-size: 20px;
-  margin-left: 10px;
-}
-
-.damage-amount {
-  color: #f56c6c;
-  font-weight: bold;
-}
-
-.text-muted {
-  color: #c0c4cc;
-}
-
-.hint-text {
-  color: #909399;
-  font-size: 12px;
-  margin-left: 10px;
-}
-
-.form-actions {
-  text-align: right;
-  margin-top: 20px;
-}
-</style>

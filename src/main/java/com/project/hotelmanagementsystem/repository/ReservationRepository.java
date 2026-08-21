@@ -2,9 +2,9 @@ package com.project.hotelmanagementsystem.repository;
 
 import com.project.hotelmanagementsystem.entity.Reservation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -12,7 +12,6 @@ import java.util.List;
 /**
  * 预订Repository接口
  */
-@Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Integer> {
 
     /**
@@ -91,4 +90,24 @@ public interface ReservationRepository extends JpaRepository<Reservation, Intege
      * @return 预订列表
      */
     List<Reservation> findByHotelId(Integer hotelId);
+
+    /**
+     * 查询所有需要自动更新为"未到场"的预订
+     * 条件：状态不是 checked_in 或 cancelled，且入住日期早于当前日期
+     *
+     * @param today 当前日期
+     * @return 需要更新的预订列表
+     */
+    @Query("SELECT r FROM Reservation r WHERE r.status NOT IN ('checked_in', 'cancelled', 'no_show') AND r.checkInDate < :today")
+    List<Reservation> findExpiredReservations(@Param("today") LocalDate today);
+
+    /**
+     * 批量更新过期预订状态为"未到场"
+     *
+     * @param today 当前日期
+     * @return 更新的记录数
+     */
+    @Modifying
+    @Query("UPDATE Reservation r SET r.status = 'no_show' WHERE r.status NOT IN ('checked_in', 'cancelled', 'no_show') AND r.checkInDate < :today")
+    int updateExpiredReservationsToNoShow(@Param("today") LocalDate today);
 }

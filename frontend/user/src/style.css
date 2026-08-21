@@ -950,6 +950,35 @@ img {
   text-decoration: underline;
 }
 
+.login-page .forgot-link {
+  color: #409eff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.login-page .forgot-link:hover {
+  text-decoration: underline;
+}
+
+.login-page .divider {
+  margin: 0 10px;
+  color: #ddd;
+}
+
+.login-page .reset-tips {
+  background: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 4px;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  color: #409eff;
+  font-size: 13px;
+}
+
+.login-page .reset-tips p {
+  margin: 0;
+}
+
 /* ============ Register Page Styles ============ */
 .register-page {
   min-height: calc(100vh - 140px);

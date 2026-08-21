@@ -29,10 +29,11 @@
         </template>
       </el-table-column>
       <el-table-column prop="notes" label="备注" show-overflow-tooltip />
-      <el-table-column label="操作" width="260">
+      <el-table-column label="操作" width="360">
         <template #default="{ row }">
           <el-button size="small" @click="editRoom(row)" :disabled="!canModifyRoom" title="无权编辑">编辑</el-button>
           <el-button size="small" type="danger" @click="deleteRoom(row)" :disabled="!canModifyRoom" title="无权删除">删除</el-button>
+          <el-button size="small" type="success" @click="quickSetVacant(row)" :disabled="!canModifyRoom || row.status === 'vacant'" title="设为空闲">设为空闲</el-button>
           <el-button size="small" type="info" @click="openLogDrawer(row)">状态日志</el-button>
         </template>
       </el-table-column>
@@ -318,6 +319,24 @@ const deleteRoom = async (row) => {
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('删除失败')
+    }
+  }
+}
+
+const quickSetVacant = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定将房间 ${row.roomNumber} 设为空闲吗？`,
+      '快捷操作',
+      { type: 'info' }
+    )
+    await updateRoomStatus(row.id, { status: 'vacant', notes: '快捷设置为空闲' })
+    ElMessage.success(`房间 ${row.roomNumber} 已设为空闲`)
+    loadRooms()
+  } catch (error) {
+    if (error !== 'cancel') {
+      const msg = error?.response?.data?.message || error?.message || '操作失败'
+      ElMessage.error(msg)
     }
   }
 }

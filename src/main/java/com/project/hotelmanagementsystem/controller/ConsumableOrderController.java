@@ -25,20 +25,17 @@ public class ConsumableOrderController {
     private final BillItemRepository billItemRepository;
     private final RoomRepository roomRepository;
     private final ConsumableItemRepository consumableItemRepository;
-    private final EmployeeRepository employeeRepository;
 
     public ConsumableOrderController(CheckInRepository checkInRepository,
                                       BillRepository billRepository,
                                       BillItemRepository billItemRepository,
                                       RoomRepository roomRepository,
-                                      ConsumableItemRepository consumableItemRepository,
-                                      EmployeeRepository employeeRepository) {
+                                      ConsumableItemRepository consumableItemRepository) {
         this.checkInRepository = checkInRepository;
         this.billRepository = billRepository;
         this.billItemRepository = billItemRepository;
         this.roomRepository = roomRepository;
         this.consumableItemRepository = consumableItemRepository;
-        this.employeeRepository = employeeRepository;
     }
 
     /**

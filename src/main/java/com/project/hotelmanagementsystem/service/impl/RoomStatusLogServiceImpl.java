@@ -6,7 +6,6 @@ import com.project.hotelmanagementsystem.entity.Room;
 import com.project.hotelmanagementsystem.entity.RoomStatusLog;
 import com.project.hotelmanagementsystem.repository.RoomStatusLogRepository;
 import com.project.hotelmanagementsystem.service.RoomStatusLogService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,7 +25,6 @@ public class RoomStatusLogServiceImpl implements RoomStatusLogService {
 
     private final RoomStatusLogRepository roomStatusLogRepository;
 
-    @Autowired
     public RoomStatusLogServiceImpl(RoomStatusLogRepository roomStatusLogRepository) {
         this.roomStatusLogRepository = roomStatusLogRepository;
     }

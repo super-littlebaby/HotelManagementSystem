@@ -82,8 +82,6 @@ public class GuestController {
             return ResponseResult.error(404, "资源不存在");
         }
         
-        Guest existing = existingOpt.get();
-        
         if (guest.getIdNumber() != null && !guest.getIdNumber().isEmpty()) {
             String validationError = IdCardValidator.validate(guest.getIdNumber());
             if (validationError != null) {
@@ -284,6 +282,78 @@ public class GuestController {
         return ResponseResult.success("获取成功", maskGuestSensitiveInfo(guest));
     }
 
+    @Operation(summary = "验证身份并重置密码", description = "通过手机号或邮箱+证件号验证身份后重置密码")
+    @PostMapping("/reset-password")
+    public ResponseResult<Map<String, Object>> resetPassword(@RequestBody Map<String, String> resetData) {
+        String account = resetData.get("account");
+        String idType = resetData.get("idType");
+        String idNumber = resetData.get("idNumber");
+        String newPassword = resetData.get("newPassword");
+        
+        if (account == null || idNumber == null || newPassword == null) {
+            return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+        }
+        
+        if (newPassword.length() < 6) {
+            return ResponseResult.error(400, "密码长度不能少于6位");
+        }
+        
+        if (idType == null) {
+            idType = "id_card";
+        }
+        
+        // 验证证件号
+        String idValidationError = validateIdNumber(idType, idNumber);
+        if (idValidationError != null) {
+            return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+        }
+        
+        // 查找客人
+        Optional<Guest> guestOpt = Optional.empty();
+        if (account.contains("@")) {
+            String emailError = validateEmail(account);
+            if (emailError != null) {
+                return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+            }
+            guestOpt = guestService.findByEmail(account);
+        } else {
+            String phoneError = validatePhone(account);
+            if (phoneError != null) {
+                return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+            }
+            List<Guest> guests = guestService.findByPhone(account);
+            if (!guests.isEmpty()) {
+                guestOpt = Optional.of(guests.get(0));
+            }
+        }
+        
+        if (!guestOpt.isPresent()) {
+            return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+        }
+        
+        Guest guest = guestOpt.get();
+        
+        // 验证证件号是否匹配
+        if (guest.getIdNumber() == null || guest.getIdNumber().isEmpty()) {
+            return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+        }
+        
+        try {
+            String decryptedIdNumber = EncryptionUtil.decrypt(guest.getIdNumber());
+            if (!decryptedIdNumber.equals(idNumber)) {
+                return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+            }
+        } catch (Exception e) {
+            return ResponseResult.error(400, "手机号/邮箱或证件号错误");
+        }
+        
+        // 重置密码
+        guest.setPassword(new BCryptPasswordEncoder().encode(newPassword));
+        Guest saved = guestService.save(guest);
+        
+        return ResponseResult.success("密码重置成功", maskGuestSensitiveInfo(saved));
+    }
+
     @Operation(summary = "更新客人信息", description = "更新当前登录客人的个人信息")
     @PutMapping("/update")
     public ResponseResult<Map<String, Object>> updateGuest(@RequestBody Map<String, Object> updateData) {
@@ -291,7 +361,7 @@ public class GuestController {
             return ResponseResult.error(400, "客人ID不能为空");
         }
         
-        Integer id = null;
+        Integer id;
         try {
             id = Integer.parseInt(updateData.get("id").toString());
         } catch (Exception e) {
@@ -325,6 +395,15 @@ public class GuestController {
                 String phoneError = validatePhone(phone);
                 if (phoneError != null) {
                     return ResponseResult.error(400, phoneError);
+                }
+                // 检查手机号是否已被其他用户使用
+                List<Guest> guestsWithSamePhone = guestService.findByPhone(phone);
+                if (!guestsWithSamePhone.isEmpty()) {
+                    boolean phoneUsedByOther = guestsWithSamePhone.stream()
+                        .anyMatch(g -> g.getId() != null && !id.equals(g.getId()));
+                    if (phoneUsedByOther) {
+                        return ResponseResult.error(400, "该手机号已被其他账号注册");
+                    }
                 }
                 existing.setPhone(phone);
             } else {
@@ -378,6 +457,12 @@ public class GuestController {
                 String emailError = validateEmail(email);
                 if (emailError != null) {
                     return ResponseResult.error(400, emailError);
+                }
+                // 检查邮箱是否已被其他用户使用
+                Optional<Guest> guestWithSameEmail = guestService.findByEmail(email);
+                if (guestWithSameEmail.isPresent() && guestWithSameEmail.get().getId() != null 
+                    && !id.equals(guestWithSameEmail.get().getId())) {
+                    return ResponseResult.error(400, "该邮箱已被其他账号注册");
                 }
                 existing.setEmail(email);
             }
@@ -531,6 +616,7 @@ public class GuestController {
         }
         
         result.put("phone", maskPhone(guest.getPhone()));
+        result.put("originalPhone", guest.getPhone());
         result.put("email", guest.getEmail());
         result.put("nationality", guest.getNationality());
         String gender = guest.getGender();
